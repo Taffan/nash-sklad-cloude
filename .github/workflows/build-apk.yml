@@ -13,8 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - uses: actions/setup-java@v4
         with:
@@ -45,65 +43,58 @@ jobs:
 
       - name: Create TWA Android project
         run: |
-          python3 << 'PYEOF'
-          import os, json
+          python3 - << PYEOF
+          import os
 
           HOST = "serene-pavlova-a08285.netlify.app"
           PKG  = "app.netlify.serene_pavlova_a08285.twa"
           NAME = "Наш Склад"
-          COLOR_ACCENT = "0xFFCC1F1F"
-          COLOR_BG     = "0xFFEFEFEF"
+          KS_PASS = os.environ.get("KS_PASS", "nashsklad123")
 
-          dirs = [
+          # Create dirs
+          for d in [
             f"twa/app/src/main/java/{PKG.replace('.','/')}/",
             "twa/app/src/main/res/values/",
             "twa/app/src/main/res/xml/",
-            "twa/gradle/wrapper/",
-          ]
-          for d in dirs:
+          ] + [f"twa/app/src/main/res/mipmap-{x}/" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]:
             os.makedirs(d, exist_ok=True)
 
           # settings.gradle
-          open("twa/settings.gradle","w").write("include ':app'\n")
+          with open("twa/settings.gradle","w") as f:
+            f.write("include ':app'\n")
 
           # root build.gradle
-          open("twa/build.gradle","w").write("""
-          buildscript {
+          with open("twa/build.gradle","w") as f:
+            f.write("""buildscript {
               repositories { google(); mavenCentral() }
               dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
           }
           allprojects { repositories { google(); mavenCentral() } }
           """)
 
-          print("project dirs created")
-
           # gradle.properties
-          open("twa/gradle.properties","w").write(
-          "android.useAndroidX=true\n"
-          "android.enableJetifier=true\n"
-          "org.gradle.jvmargs=-Xmx2048m\n"
-          )
+          with open("twa/gradle.properties","w") as f:
+            f.write("android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m\n")
 
           # app/build.gradle
-          ks_pass = os.environ.get('KS_PASS','nashsklad123')
-          open("twa/app/build.gradle","w").write(f"""
-          plugins {{ id 'com.android.application' }}
+          with open("twa/app/build.gradle","w") as f:
+            f.write(f"""plugins {{ id 'com.android.application' }}
           android {{
-              namespace "{PKG}"
+              namespace '{PKG}'
               compileSdk 34
               defaultConfig {{
-                  applicationId "{PKG}"
-                  minSdk 19
+                  applicationId '{PKG}'
+                  minSdk 21
                   targetSdk 34
                   versionCode 1
-                  versionName "1.0"
+                  versionName '1.0'
               }}
               signingConfigs {{
                   release {{
-                      storeFile file("../../keystore.jks")
-                      storePassword "{ks_pass}"
-                      keyAlias "upload"
-                      keyPassword "{ks_pass}"
+                      storeFile file('../../keystore.jks')
+                      storePassword '{KS_PASS}'
+                      keyAlias 'upload'
+                      keyPassword '{KS_PASS}'
                   }}
               }}
               buildTypes {{
@@ -123,7 +114,8 @@ jobs:
           """)
 
           # AndroidManifest.xml
-          open(f"twa/app/src/main/AndroidManifest.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
+          with open("twa/app/src/main/AndroidManifest.xml","w") as f:
+            f.write(f"""<?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET"/>
               <uses-permission android:name="android.permission.CAMERA"/>
@@ -148,58 +140,37 @@ jobs:
                           <data android:scheme="https" android:host="{HOST}"/>
                       </intent-filter>
                   </activity>
-                  <meta-data android:name="asset_statements"
-                      android:resource="@xml/assetlinks"/>
               </application>
           </manifest>
           """)
 
-          # res/values/strings.xml
-          open("twa/app/src/main/res/values/strings.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
+          # strings.xml
+          with open("twa/app/src/main/res/values/strings.xml","w") as f:
+            f.write(f"""<?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">{NAME}</string>
           </resources>
           """)
 
-          # res/values/styles.xml
-          open("twa/app/src/main/res/values/styles.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
+          # styles.xml — use MaterialComponents to avoid AppCompat issues
+          with open("twa/app/src/main/res/values/styles.xml","w") as f:
+            f.write("""<?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
-                  <item name="colorPrimary">{COLOR_ACCENT}</item>
-                  <item name="colorPrimaryDark">{COLOR_ACCENT}</item>
-                  <item name="colorAccent">{COLOR_ACCENT}</item>
-                  <item name="android:windowBackground">{COLOR_BG}</item>
+              <style name="AppTheme" parent="android:Theme.NoTitleBar">
+                  <item name="android:windowBackground">#EFEFEF</item>
+                  <item name="android:statusBarColor">#CC1F1F</item>
               </style>
           </resources>
           """)
 
-          # res/xml/assetlinks.xml
-          open("twa/app/src/main/res/xml/assetlinks.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="asset_statements">[{{
-                  \\"relation\\": [\\"delegate_permission/common.handle_all_urls\\"],
-                  \\"target\\": {{
-                      \\"namespace\\": \\"web\\",
-                      \\"site\\": \\"https://{HOST}\\"
-                  }}
-              }}]</string>
-          </resources>
-          """)
-
-          # Create placeholder icon dirs (icons copied in next step)
-          for density in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]:
-              d = f"twa/app/src/main/res/mipmap-{density}"
-              os.makedirs(d, exist_ok=True)
-
-          print("TWA project created successfully")
+          print("TWA project created OK")
           PYEOF
 
-      - name: Copy real icons into project
+      - name: Copy icons
         run: |
-          for density in mdpi hdpi xhdpi xxhdpi; do
-            cp icon-192.png twa/app/src/main/res/mipmap-$density/ic_launcher.png
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp icon-192.png twa/app/src/main/res/mipmap-$d/ic_launcher.png
           done
-          cp icon-512.png twa/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png 2>/dev/null || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -208,26 +179,25 @@ jobs:
 
       - name: Build release APK
         run: |
-          # Write local.properties so Gradle finds the SDK
           echo "sdk.dir=$ANDROID_HOME" > twa/local.properties
           cd twa
-          gradle assembleRelease --no-daemon --stacktrace
+          gradle assembleRelease --no-daemon
 
-      - name: Find APK
+      - name: Find and upload APK
         run: |
           APK=$(find twa -name "*.apk" | head -1)
-          echo "Found: $APK"
+          echo "APK: $APK"
           cp "$APK" NashSklad.apk
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NashSklad-APK
           path: NashSklad.apk
           retention-days: 30
 
-      - name: Show keystore base64 (save to Secrets)
+      - name: Print keystore base64
         if: env.keystore_is_new == 'true'
         run: |
-          echo "=== Сохраните как KEYSTORE_BASE64 в GitHub Secrets ==="
+          echo "=== Сохраните как KEYSTORE_BASE64 ==="
           base64 keystore.jks
