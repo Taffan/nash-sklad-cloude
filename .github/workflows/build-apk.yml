@@ -38,11 +38,12 @@ jobs:
           if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
           echo "KS_PASS=$PASS" >> $GITHUB_ENV
 
+          mkdir -p app
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
           else
             keytool -genkeypair \
-              -keystore keystore.jks -alias upload \
+              -keystore app/keystore.jks -alias upload \
               -keyalg RSA -keysize 2048 -validity 9125 \
               -storepass "$PASS" -keypass "$PASS" \
               -dname "CN=NashSklad,O=NashSklad,C=RU" \
@@ -141,7 +142,7 @@ jobs:
               }}
               signingConfigs {{
                   release {{
-                      storeFile file('../../keystore.jks')
+                      storeFile file('../keystore.jks')
                       storePassword '{KS_PASS}'
                       keyAlias 'upload'
                       keyPassword '{KS_PASS}'
@@ -219,13 +220,4 @@ jobs:
             cp icon-192.png app/app/src/main/res/mipmap-$d/ic_launcher.png
           done
 
-      # 8️⃣ Setup Gradle
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.6'
-
-      # 9️⃣ Build release APK
-      - name: Build release APK
-        run: |
-          echo "sdk.dir=$ANDROID_HOME" > app/local
+      # 8️⃣
