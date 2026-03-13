@@ -1,0 +1,203 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Generate keystore
+        run: |
+          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
+          echo "KS_PASS=$PASS" >> $GITHUB_ENV
+
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+          else
+            keytool -genkeypair \
+              -keystore keystore.jks -alias upload \
+              -keyalg RSA -keysize 2048 -validity 9125 \
+              -storepass "$PASS" -keypass "$PASS" \
+              -dname "CN=NashSklad,O=NashSklad,C=RU" \
+              -noprompt
+            echo "keystore_is_new=true" >> $GITHUB_ENV
+          fi
+
+          echo "=== SHA-256 fingerprint ==="
+          keytool -list -v -keystore keystore.jks -alias upload \
+            -storepass "$PASS" -noprompt 2>/dev/null | grep "SHA256:" || true
+
+      - name: Create TWA Android project
+        run: |
+          python3 - << PYEOF
+          import os
+
+          HOST = "serene-pavlova-a08285.netlify.app"
+          PKG  = "app.netlify.serene_pavlova_a08285.twa"
+          NAME = "Наш Склад"
+          KS_PASS = os.environ.get("KS_PASS", "nashsklad123")
+
+          # Create dirs
+          for d in [
+            f"twa/app/src/main/java/{PKG.replace('.','/')}/",
+            "twa/app/src/main/res/values/",
+            "twa/app/src/main/res/xml/",
+          ] + [f"twa/app/src/main/res/mipmap-{x}/" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]:
+            os.makedirs(d, exist_ok=True)
+
+          # settings.gradle
+          with open("twa/settings.gradle","w") as f:
+            f.write("include ':app'\n")
+
+          # root build.gradle
+          with open("twa/build.gradle","w") as f:
+            f.write("""buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          """)
+
+          # gradle.properties
+          with open("twa/gradle.properties","w") as f:
+            f.write("android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m\n")
+
+          # app/build.gradle
+          with open("twa/app/build.gradle","w") as f:
+            f.write(f"""plugins {{ id 'com.android.application' }}
+          android {{
+              namespace '{PKG}'
+              compileSdk 34
+              defaultConfig {{
+                  applicationId '{PKG}'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }}
+              signingConfigs {{
+                  release {{
+                      storeFile file('../../keystore.jks')
+                      storePassword '{KS_PASS}'
+                      keyAlias 'upload'
+                      keyPassword '{KS_PASS}'
+                  }}
+              }}
+              buildTypes {{
+                  release {{
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }}
+              }}
+              compileOptions {{
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }}
+          }}
+          dependencies {{
+              implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+          }}
+          """)
+
+          # AndroidManifest.xml
+          with open("twa/app/src/main/AndroidManifest.xml","w") as f:
+            f.write(f"""<?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET"/>
+              <uses-permission android:name="android.permission.CAMERA"/>
+              <application
+                  android:label="{NAME}"
+                  android:icon="@mipmap/ic_launcher"
+                  android:theme="@style/AppTheme"
+                  android:allowBackup="true">
+                  <activity
+                      android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+                      android:exported="true">
+                      <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                          android:value="https://{HOST}/index.html"/>
+                      <intent-filter android:autoVerify="true">
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                      <intent-filter android:autoVerify="true">
+                          <action android:name="android.intent.action.VIEW"/>
+                          <category android:name="android.intent.category.DEFAULT"/>
+                          <category android:name="android.intent.category.BROWSABLE"/>
+                          <data android:scheme="https" android:host="{HOST}"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          """)
+
+          # strings.xml
+          with open("twa/app/src/main/res/values/strings.xml","w") as f:
+            f.write(f"""<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">{NAME}</string>
+          </resources>
+          """)
+
+          # styles.xml — use MaterialComponents to avoid AppCompat issues
+          with open("twa/app/src/main/res/values/styles.xml","w") as f:
+            f.write("""<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="android:Theme.NoTitleBar">
+                  <item name="android:windowBackground">#EFEFEF</item>
+                  <item name="android:statusBarColor">#CC1F1F</item>
+              </style>
+          </resources>
+          """)
+
+          print("TWA project created OK")
+          PYEOF
+
+      - name: Copy icons
+        run: |
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            cp icon-192.png twa/app/src/main/res/mipmap-$d/ic_launcher.png
+          done
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
+
+      - name: Build release APK
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > twa/local.properties
+          cd twa
+          gradle assembleRelease --no-daemon
+
+      - name: Find and upload APK
+        run: |
+          APK=$(find twa -name "*.apk" | head -1)
+          echo "APK: $APK"
+          cp "$APK" NashSklad.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NashSklad-APK
+          path: NashSklad.apk
+          retention-days: 30
+
+      - name: Print keystore base64
+        if: env.keystore_is_new == 'true'
+        run: |
+          echo "=== Сохраните как KEYSTORE_BASE64 ==="
+          base64 keystore.jks
