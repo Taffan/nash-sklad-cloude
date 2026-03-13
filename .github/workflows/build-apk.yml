@@ -75,27 +75,7 @@ jobs:
           allprojects { repositories { google(); mavenCentral() } }
           """)
 
-          # gradle wrapper properties
-          open("twa/gradle/wrapper/gradle-wrapper.properties","w").write(
-          "distributionUrl=https\\://services.gradle.org/distributions/gradle-8.6-bin.zip\n"
-          "distributionBase=GRADLE_USER_HOME\n"
-          "distributionPath=wrapper/dists\n"
-          "zipStoreBase=GRADLE_USER_HOME\n"
-          "zipStorePath=wrapper/dists\n"
-          )
-
-          # gradlew (download wrapper jar)
-          import urllib.request
-          urllib.request.urlretrieve(
-            "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar",
-            "twa/gradle/wrapper/gradle-wrapper.jar"
-          )
-
-          # gradlew script
-          open("twa/gradlew","w").write(
-          '#!/usr/bin/env sh\nexec java -jar "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" "$@"\n'
-          )
-          os.chmod("twa/gradlew", 0o755)
+          print("project dirs created")
 
           # app/build.gradle
           ks_pass = os.environ.get('KS_PASS','nashsklad123')
@@ -213,11 +193,15 @@ jobs:
           done
           cp icon-512.png twa/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png 2>/dev/null || true
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.6'
+
       - name: Build release APK
         run: |
           cd twa
-          chmod +x gradlew
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          gradle assembleRelease --no-daemon --stacktrace
         env:
           ANDROID_HOME: ${{ env.ANDROID_HOME }}
 
