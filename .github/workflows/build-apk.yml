@@ -350,10 +350,15 @@ jobs:
                       );
                       textRecognizer.process(image)
                           .addOnSuccessListener(result -> {{
-                              String text = result.getText().toUpperCase()
-                                  .replaceAll("[ \t\n\r]+", " ");
+                              String raw = result.getText().toUpperCase();
+                              StringBuilder sb = new StringBuilder();
+                              for (int ci = 0; ci < raw.length(); ci++) {{
+                                  char ch = raw.charAt(ci);
+                                  if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) sb.append(ch);
+                              }}
+                              String text = sb.toString();
                               Pattern p = Pattern.compile("(INC|REQ)([0-9O]{{12}})");
-                              Matcher m = p.matcher(text.replaceAll("[^A-Z0-9]", ""));
+                              Matcher m = p.matcher(text);
                               if (m.find()) {{
                                   String digits = m.group(2).replace("O", "0");
                                   String found = m.group(1) + digits;
