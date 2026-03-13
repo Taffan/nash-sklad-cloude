@@ -82,6 +82,7 @@ jobs:
           open("twa/app/build.gradle","w").write(f"""
           plugins {{ id 'com.android.application' }}
           android {{
+              namespace "{PKG}"
               compileSdk 34
               defaultConfig {{
                   applicationId "{PKG}"
