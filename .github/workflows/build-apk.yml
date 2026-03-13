@@ -1,0 +1,136 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Create Bubblewrap project
+        run: |
+          mkdir -p apk-build
+          cd apk-build
+          bubblewrap init \
+            --manifest "https://serene-pavlova-a08285.netlify.app/manifest.json" \
+            --directory .
+        env:
+          BUBBLEWRAP_SKIP_JAVA_CHECK: 'true'
+
+      - name: Patch twa-manifest.json (package name + colors)
+        run: |
+          cd apk-build
+          cat twa-manifest.json | \
+            python3 -c "
+          import sys, json
+          m = json.load(sys.stdin)
+          m['packageId']       = 'app.netlify.serene_pavlova_a08285.twa'
+          m['name']            = 'Наш Склад'
+          m['launcherName']    = 'Наш Склад'
+          m['themeColor']      = '#cc1f1f'
+          m['backgroundColor'] = '#efefef'
+          m['display']         = 'fullscreen'
+          m['orientation']     = 'portrait'
+          m['enableNotifications'] = False
+          m['signingKey']['path']  = '../keystore.jks'
+          m['signingKey']['alias'] = 'upload'
+          print(json.dumps(m, ensure_ascii=False, indent=2))
+          " > twa-manifest-patched.json
+          mv twa-manifest-patched.json twa-manifest.json
+
+      - name: Generate keystore from secret (or create new)
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
+            echo "Using existing keystore from secret"
+          else
+            keytool -genkeypair \
+              -keystore keystore.jks \
+              -alias upload \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 9125 \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD || 'nashsklad123' }}" \
+              -keypass "${{ secrets.KEYSTORE_PASSWORD || 'nashsklad123' }}" \
+              -dname "CN=NashSklad, OU=Warehouse, O=NashSklad, L=Yaroslavl, S=Yaroslavl, C=RU"
+            echo "Created new keystore"
+            # Print SHA-256 fingerprint for assetlinks.json
+            keytool -list -v \
+              -keystore keystore.jks \
+              -alias upload \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD || 'nashsklad123' }}" \
+              2>/dev/null | grep "SHA256:" || true
+          fi
+
+      - name: Patch signing config in twa-manifest
+        run: |
+          cd apk-build
+          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
+          python3 -c "
+          import sys, json
+          with open('twa-manifest.json') as f:
+              m = json.load(f)
+          m['signingKey']['path']          = '../keystore.jks'
+          m['signingKey']['alias']         = 'upload'
+          m['signingKey']['keypassword']   = '$PASS'
+          m['signingKey']['storepassword'] = '$PASS'
+          print(json.dumps(m, ensure_ascii=False, indent=2))
+          " > twa-manifest-signed.json
+          mv twa-manifest-signed.json twa-manifest.json
+
+      - name: Build APK
+        run: |
+          cd apk-build
+          bubblewrap build --skipPwaValidation
+
+      - name: Locate APK
+        run: |
+          find apk-build -name "*.apk" | tee /tmp/apk-list.txt
+          APK=$(head -1 /tmp/apk-list.txt)
+          echo "APK_PATH=$APK" >> $GITHUB_ENV
+
+      - name: Print SHA-256 fingerprint (for assetlinks.json)
+        run: |
+          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
+          echo "=== SHA-256 fingerprint (нужен для assetlinks.json) ==="
+          keytool -list -v \
+            -keystore keystore.jks \
+            -alias upload \
+            -storepass "$PASS" \
+            2>/dev/null | grep "SHA256:" || true
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NashSklad-APK
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+
+      - name: Upload keystore (if newly created)
+        if: ${{ !secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "=== KEYSTORE BASE64 (сохраните в GitHub Secrets как KEYSTORE_BASE64) ==="
+          base64 keystore.jks
+          
