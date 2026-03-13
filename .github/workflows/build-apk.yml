@@ -27,7 +27,7 @@ jobs:
       - name: Install Bubblewrap
         run: npm install -g @bubblewrap/cli
 
-      - name: Create Bubblewrap project
+      - name: Init Bubblewrap project
         run: |
           mkdir -p apk-build
           cd apk-build
@@ -37,32 +37,16 @@ jobs:
         env:
           BUBBLEWRAP_SKIP_JAVA_CHECK: 'true'
 
-      - name: Patch twa-manifest.json (package name + colors)
+      - name: Prepare keystore
         run: |
-          cd apk-build
-          cat twa-manifest.json | \
-            python3 -c "
-          import sys, json
-          m = json.load(sys.stdin)
-          m['packageId']       = 'app.netlify.serene_pavlova_a08285.twa'
-          m['name']            = 'Наш Склад'
-          m['launcherName']    = 'Наш Склад'
-          m['themeColor']      = '#cc1f1f'
-          m['backgroundColor'] = '#efefef'
-          m['display']         = 'fullscreen'
-          m['orientation']     = 'portrait'
-          m['enableNotifications'] = False
-          m['signingKey']['path']  = '../keystore.jks'
-          m['signingKey']['alias'] = 'upload'
-          print(json.dumps(m, ensure_ascii=False, indent=2))
-          " > twa-manifest-patched.json
-          mv twa-manifest-patched.json twa-manifest.json
+          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
+          echo "KEYSTORE_PASS=$PASS" >> $GITHUB_ENV
 
-      - name: Generate keystore from secret (or create new)
-        run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
-            echo "Using existing keystore from secret"
+            echo "keystore_is_new=false" >> $GITHUB_ENV
+            echo "Using existing keystore"
           else
             keytool -genkeypair \
               -keystore keystore.jks \
@@ -70,56 +54,58 @@ jobs:
               -keyalg RSA \
               -keysize 2048 \
               -validity 9125 \
-              -storepass "${{ secrets.KEYSTORE_PASSWORD || 'nashsklad123' }}" \
-              -keypass "${{ secrets.KEYSTORE_PASSWORD || 'nashsklad123' }}" \
+              -storepass "$PASS" \
+              -keypass "$PASS" \
               -dname "CN=NashSklad, OU=Warehouse, O=NashSklad, L=Yaroslavl, S=Yaroslavl, C=RU"
+            echo "keystore_is_new=true" >> $GITHUB_ENV
             echo "Created new keystore"
-            # Print SHA-256 fingerprint for assetlinks.json
-            keytool -list -v \
-              -keystore keystore.jks \
-              -alias upload \
-              -storepass "${{ secrets.KEYSTORE_PASSWORD || 'nashsklad123' }}" \
-              2>/dev/null | grep "SHA256:" || true
           fi
 
-      - name: Patch signing config in twa-manifest
+      - name: Print SHA-256 fingerprint
+        run: |
+          echo "=== SHA-256 fingerprint (нужен для assetlinks.json) ==="
+          keytool -list -v \
+            -keystore keystore.jks \
+            -alias upload \
+            -storepass "$KEYSTORE_PASS" \
+            2>/dev/null | grep "SHA256:" || true
+
+      - name: Patch twa-manifest.json
         run: |
           cd apk-build
-          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
-          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
-          python3 -c "
-          import sys, json
+          python3 << 'PYEOF'
+          import json
+          import os
+          PASS = os.environ.get('KEYSTORE_PASS', 'nashsklad123')
           with open('twa-manifest.json') as f:
               m = json.load(f)
+          m['packageId']                   = 'app.netlify.serene_pavlova_a08285.twa'
+          m['name']                        = 'Наш Склад'
+          m['launcherName']                = 'Наш Склад'
+          m['themeColor']                  = '#cc1f1f'
+          m['backgroundColor']             = '#efefef'
+          m['display']                     = 'fullscreen'
+          m['orientation']                 = 'portrait'
+          m['enableNotifications']         = False
           m['signingKey']['path']          = '../keystore.jks'
           m['signingKey']['alias']         = 'upload'
-          m['signingKey']['keypassword']   = '$PASS'
-          m['signingKey']['storepassword'] = '$PASS'
-          print(json.dumps(m, ensure_ascii=False, indent=2))
-          " > twa-manifest-signed.json
-          mv twa-manifest-signed.json twa-manifest.json
+          m['signingKey']['keypassword']   = PASS
+          m['signingKey']['storepassword'] = PASS
+          with open('twa-manifest.json', 'w') as f:
+              json.dump(m, f, ensure_ascii=False, indent=2)
+          print('OK')
+          PYEOF
 
       - name: Build APK
         run: |
           cd apk-build
           bubblewrap build --skipPwaValidation
 
-      - name: Locate APK
+      - name: Find APK
         run: |
-          find apk-build -name "*.apk" | tee /tmp/apk-list.txt
-          APK=$(head -1 /tmp/apk-list.txt)
+          APK=$(find apk-build -name "*.apk" | head -1)
           echo "APK_PATH=$APK" >> $GITHUB_ENV
-
-      - name: Print SHA-256 fingerprint (for assetlinks.json)
-        run: |
-          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
-          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
-          echo "=== SHA-256 fingerprint (нужен для assetlinks.json) ==="
-          keytool -list -v \
-            -keystore keystore.jks \
-            -alias upload \
-            -storepass "$PASS" \
-            2>/dev/null | grep "SHA256:" || true
+          echo "Found: $APK"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
@@ -128,9 +114,8 @@ jobs:
           path: ${{ env.APK_PATH }}
           retention-days: 30
 
-      - name: Upload keystore (if newly created)
-        if: ${{ !secrets.KEYSTORE_BASE64 }}
+      - name: Print keystore base64 for Secrets
+        if: env.keystore_is_new == 'true'
         run: |
-          echo "=== KEYSTORE BASE64 (сохраните в GitHub Secrets как KEYSTORE_BASE64) ==="
+          echo "=== Сохраните в GitHub Secrets как KEYSTORE_BASE64 ==="
           base64 keystore.jks
-          
