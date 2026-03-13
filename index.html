@@ -729,10 +729,17 @@ body {
             <div style="color:#fff;font-size:14px;font-weight:600;">Наведите камеру на номер заявки</div>
             <div style="position:relative;width:90vw;max-width:400px;border-radius:12px;overflow:hidden;">
               <video id="ocr-video" playsinline autoplay muted style="width:100%;display:block;border-radius:12px;"></video>
-              <div id="ocr-status" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#fff;font-size:12px;background:rgba(0,0,0,0.5);padding:4px 8px;"></div>
+              <!-- Рамка-прицел для номера заявки -->
+              <div style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
+                <div style="width:92%;height:72px;border:3px solid rgba(255,200,0,0.95);border-radius:8px;box-shadow:0 0 0 1000px rgba(0,0,0,0.45);"></div>
+              </div>
+              <div id="ocr-status" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#fff;font-size:12px;background:rgba(0,0,0,0.6);padding:5px 8px;border-radius:0 0 10px 10px;"></div>
+            </div>
+            <div id="ocr-hint" style="display:none;background:rgba(180,0,0,0.75);color:#fff;font-size:12px;padding:7px 14px;border-radius:8px;text-align:center;max-width:320px;">
+              Принимается только формат: <b>REQ000000000000</b> или <b>INC000000000000</b>
             </div>
             <div style="display:flex;gap:10px;">
-              <button onclick="captureOCR()" style="padding:10px 24px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Распознать</button>
+              <button id="ocr-btn" onclick="captureOCR()" style="padding:10px 24px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Распознать</button>
               <button onclick="closeOCR()" style="padding:10px 24px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;cursor:pointer;">Отмена</button>
             </div>
           </div>
@@ -882,6 +889,30 @@ body {
         </div>
       </div>
 
+      <!-- Sound toggle -->
+      <div style="background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:36px;height:36px;background:var(--accent-dim);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--accent);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              </svg>
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Звук при сканировании</div>
+              <div style="font-size:12px;color:var(--text3);">Звуковой бип при считывании кода</div>
+            </div>
+          </div>
+          <label style="position:relative;display:inline-block;width:46px;height:26px;flex-shrink:0;">
+            <input type="checkbox" id="sound-toggle" onchange="toggleSound()" style="opacity:0;width:0;height:0;position:absolute;">
+            <span id="sound-switch-track" style="position:absolute;inset:0;background:var(--border);border-radius:13px;transition:background 0.2s;cursor:pointer;">
+              <span id="sound-switch-thumb" style="position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:50%;transition:transform 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+
       <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;margin-bottom:4px;">О приложении</div>
       <div style="background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:14px;">
 
@@ -994,6 +1025,7 @@ let ocrStream = null;
 let ncSettings = {};
 let isDark = false;
 let vibrationEnabled = true;
+let soundEnabled = true;
 let _tt;
 const MEM_KEYS = { model: 'mem_model', from: 'mem_from', to: 'mem_to' };
 const memories = { model: [], from: [], to: [] };
@@ -1005,6 +1037,7 @@ for (const k in MEM_KEYS) { try { memories[k] = JSON.parse(localStorage.getItem(
 try { ncSettings = JSON.parse(localStorage.getItem('nc_settings') || '{}'); } catch(e) {}
 isDark = localStorage.getItem('theme') === 'dark';
 vibrationEnabled = localStorage.getItem('vibration') !== 'false';
+soundEnabled = localStorage.getItem('sound') !== 'false';
 
 function switchTab(t) {
   ['scan','rec','settings'].forEach(id => {
@@ -1220,10 +1253,31 @@ function stopCam() {
   camActive=false;
 }
 
+
+// ── Звуковой сигнал при сканировании ───────────────
+function beep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(1800, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.12);
+    osc.onended = () => ctx.close();
+  } catch(e) {}
+}
+
 function onScan(code) {
   if (cooldown||!code) return;
   cooldown=true; setTimeout(()=>cooldown=false,2000);
-  if (navigator.vibrate) navigator.vibrate(60);
+  if (vibrationEnabled && navigator.vibrate) navigator.vibrate(60);
+  if (soundEnabled) beep();
   const f=document.getElementById('flash'); f.classList.add('on'); setTimeout(()=>f.classList.remove('on'),120);
   setBC(code); toast('✓ '+code,'ok');
 }
@@ -1530,6 +1584,9 @@ async function startOCR() {
     });
     document.getElementById('ocr-video').srcObject = ocrStream;
     document.getElementById('ocr-status').textContent = 'Готово — нажмите «Распознать»';
+    document.getElementById('ocr-status').style.color = '';
+    const hint = document.getElementById('ocr-hint');
+    if (hint) { hint.style.display = 'none'; }
   } catch(e) {
     document.getElementById('ocr-status').textContent = '✕ Нет доступа к камере';
   }
@@ -1540,34 +1597,51 @@ async function captureOCR() {
   const status = document.getElementById('ocr-status');
   if (!ocrStream || video.readyState < 2) { toast('⚠ Камера не готова', 'err'); return; }
 
-  // Снимок в canvas
   const cv = document.createElement('canvas');
   cv.width = video.videoWidth; cv.height = video.videoHeight;
   cv.getContext('2d').drawImage(video, 0, 0);
 
   status.textContent = '⏳ Распознавание...';
+  status.style.color = '';
   document.getElementById('ocr-btn').disabled = true;
 
   try {
-    const worker = await Tesseract.createWorker('eng+rus');
-    await worker.setParameters({ tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789/-_' });
+    const worker = await Tesseract.createWorker('eng');
+    await worker.setParameters({
+      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/'
+    });
     const { data: { text } } = await worker.recognize(cv);
     await worker.terminate();
 
-    // Ищем паттерн типа INC-001, REQ/001, заявка-123 и т.д.
-    const clean = text.replace(/[\r\n]+/g, ' ').trim();
-    const match = clean.match(/[A-Za-z0-9А-Яа-я]{2,}[-/][A-Za-z0-9А-Яа-я][-A-Za-z0-9А-Яа-я]*/);
-    const result = match ? match[0] : clean.replace(/\s+/g, ' ').trim().slice(0, 30);
+    // Нормализуем текст и приводим к верхнему регистру
+    const clean = text.replace(/[\r\n\s]+/g, ' ').trim().toUpperCase();
 
-    if (result) {
+    // Паттерн: INC или REQ + необязательный разделитель + цифры (6-18 знаков)
+    // Примеры: REQ000000000000, INC-0000001, INC_00000123
+    // OCR часто путает O и 0 — заменяем O→0 в цифровой части
+    const REQ_PATTERN = /\b(INC|REQ)[-_]?([0-9O]{6,18})\b/g;
+    const matches = [...clean.matchAll(REQ_PATTERN)];
+
+    if (matches.length > 0) {
+      const raw = matches[0][0].toUpperCase();
+      // Нормализуем: убираем разделитель, заменяем O→0 в числовой части
+      const prefix = raw.match(/^(INC|REQ)/)[0];
+      const digits = raw.slice(prefix.length).replace(/^[-_]/, '').replace(/O/g, '0');
+      const result = prefix + digits;
       document.getElementById('f-req').value = result;
-      toast('✓ Распознано: ' + result, 'ok');
-      closeOCR();
+      status.textContent = '✓ Найдено: ' + result;
+      status.style.color = 'green';
+      toast('✓ ' + result, 'ok');
+      setTimeout(closeOCR, 900);
     } else {
-      status.textContent = '⚠ Не удалось распознать — попробуйте снова';
+      const preview = clean.slice(0, 50) || '(пусто)';
+      status.textContent = '⚠ Номер не найден. Нужен формат INC... или REQ...';
+      status.style.color = 'var(--danger)';
+      document.getElementById('ocr-hint').style.display = 'block';
     }
   } catch(e) {
     status.textContent = '✕ Ошибка распознавания';
+    status.style.color = 'var(--danger)';
   }
   document.getElementById('ocr-btn').disabled = false;
 }
@@ -1576,6 +1650,23 @@ function closeOCR() {
   if (ocrStream) { ocrStream.getTracks().forEach(t => t.stop()); ocrStream = null; }
   document.getElementById('ocr-video').srcObject = null;
   document.getElementById('ocr-modal').style.display = 'none';
+}
+
+function toggleSound() {
+  soundEnabled = document.getElementById('sound-toggle').checked;
+  localStorage.setItem('sound', soundEnabled ? 'true' : 'false');
+  applySoundSwitch();
+  if (soundEnabled) beep();
+}
+
+function applySoundSwitch() {
+  const toggle = document.getElementById('sound-toggle');
+  const track  = document.getElementById('sound-switch-track');
+  const thumb  = document.getElementById('sound-switch-thumb');
+  if (!toggle) return;
+  toggle.checked = soundEnabled;
+  if (track) track.style.background = soundEnabled ? 'var(--accent)' : 'var(--border)';
+  if (thumb) thumb.style.transform  = soundEnabled ? 'translateX(20px)' : 'translateX(0)';
 }
 
 function applyTheme() {
@@ -1639,6 +1730,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   applyTheme();
   applyVibrationSwitch();
+  applySoundSwitch();
   updateCount();
   const fdate = document.getElementById('f-date');
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
