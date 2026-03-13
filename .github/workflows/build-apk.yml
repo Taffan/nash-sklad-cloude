@@ -37,48 +37,44 @@ jobs:
             echo "keystore_is_new=true" >> $GITHUB_ENV
           fi
 
-          echo "=== SHA-256 fingerprint ==="
-          keytool -list -v -keystore keystore.jks -alias upload \
-            -storepass "$PASS" -noprompt 2>/dev/null | grep "SHA256:" || true
-
-      - name: Create TWA Android project
+      - name: Create WebView Android project
         run: |
-          python3 - << PYEOF
-          import os
+          python3 - << 'PYEOF'
+          import os, shutil
 
-          HOST = "serene-pavlova-a08285.netlify.app"
-          PKG  = "app.netlify.serene_pavlova_a08285.twa"
-          NAME = "Наш Склад"
-          KS_PASS = os.environ.get("KS_PASS", "nashsklad123")
+          PKG      = "ru.nashsklad.app"
+          NAME     = "Наш Склад"
+          KS_PASS  = os.environ.get("KS_PASS", "nashsklad123")
+          PKG_PATH = PKG.replace('.', '/')
 
-          # Create dirs
-          for d in [
-            f"twa/app/src/main/java/{PKG.replace('.','/')}/",
-            "twa/app/src/main/res/values/",
-            "twa/app/src/main/res/xml/",
-          ] + [f"twa/app/src/main/res/mipmap-{x}/" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]:
+          DIRS = [
+            f"app/app/src/main/java/{PKG_PATH}/",
+            "app/app/src/main/assets/",
+            "app/app/src/main/res/values/",
+          ] + [f"app/app/src/main/res/mipmap-{x}/" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]
+
+          for d in DIRS:
             os.makedirs(d, exist_ok=True)
 
-          # settings.gradle
-          with open("twa/settings.gradle","w") as f:
-            f.write("include ':app'\n")
+          shutil.copy("index.html", "app/app/src/main/assets/index.html")
 
-          # root build.gradle
-          with open("twa/build.gradle","w") as f:
-            f.write("""buildscript {
-              repositories { google(); mavenCentral() }
-              dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }
-          }
-          allprojects { repositories { google(); mavenCentral() } }
-          """)
+          open("app/settings.gradle","w").write("include ':app'\n")
 
-          # gradle.properties
-          with open("twa/gradle.properties","w") as f:
-            f.write("android.useAndroidX=true\nandroid.enableJetifier=true\norg.gradle.jvmargs=-Xmx2048m\n")
+          open("app/build.gradle","w").write(
+            "buildscript {\n"
+            "    repositories { google(); mavenCentral() }\n"
+            "    dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }\n"
+            "}\n"
+            "allprojects { repositories { google(); mavenCentral() } }\n"
+          )
 
-          # app/build.gradle
-          with open("twa/app/build.gradle","w") as f:
-            f.write(f"""plugins {{ id 'com.android.application' }}
+          open("app/gradle.properties","w").write(
+            "android.useAndroidX=true\n"
+            "android.enableJetifier=true\n"
+            "org.gradle.jvmargs=-Xmx2048m\n"
+          )
+
+          open("app/app/build.gradle","w").write(f"""plugins {{ id 'com.android.application' }}
           android {{
               namespace '{PKG}'
               compileSdk 34
@@ -109,67 +105,101 @@ jobs:
               }}
           }}
           dependencies {{
-              implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+              implementation 'androidx.appcompat:appcompat:1.6.1'
           }}
           """)
 
-          # AndroidManifest.xml
-          with open("twa/app/src/main/AndroidManifest.xml","w") as f:
-            f.write(f"""<?xml version="1.0" encoding="utf-8"?>
+          open("app/app/src/main/AndroidManifest.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.INTERNET"/>
               <uses-permission android:name="android.permission.CAMERA"/>
+              <uses-feature android:name="android.hardware.camera" android:required="false"/>
               <application
                   android:label="{NAME}"
                   android:icon="@mipmap/ic_launcher"
                   android:theme="@style/AppTheme"
                   android:allowBackup="true">
                   <activity
-                      android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
-                      android:exported="true">
-                      <meta-data android:name="android.support.customtabs.trusted.DEFAULT_URL"
-                          android:value="https://{HOST}/index.html"/>
-                      <intent-filter android:autoVerify="true">
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
                           <action android:name="android.intent.action.MAIN"/>
                           <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                      <intent-filter android:autoVerify="true">
-                          <action android:name="android.intent.action.VIEW"/>
-                          <category android:name="android.intent.category.DEFAULT"/>
-                          <category android:name="android.intent.category.BROWSABLE"/>
-                          <data android:scheme="https" android:host="{HOST}"/>
                       </intent-filter>
                   </activity>
               </application>
           </manifest>
           """)
 
-          # strings.xml
-          with open("twa/app/src/main/res/values/strings.xml","w") as f:
-            f.write(f"""<?xml version="1.0" encoding="utf-8"?>
+          open(f"app/app/src/main/java/{PKG_PATH}/MainActivity.java","w").write(f"""package {PKG};
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebChromeClient;
+          import android.webkit.PermissionRequest;
+
+          public class MainActivity extends Activity {{
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {{
+                  super.onCreate(savedInstanceState);
+                  webView = new WebView(this);
+                  setContentView(webView);
+
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
+                  s.setAllowFileAccessFromFileURLs(true);
+                  s.setAllowUniversalAccessFromFileURLs(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setWebChromeClient(new WebChromeClient() {{
+                      @Override
+                      public void onPermissionRequest(PermissionRequest request) {{
+                          request.grant(request.getResources());
+                      }}
+                  }});
+
+                  webView.loadUrl("file:///android_asset/index.html");
+              }}
+
+              @Override
+              public void onBackPressed() {{
+                  if (webView.canGoBack()) webView.goBack();
+                  else super.onBackPressed();
+              }}
+          }}
+          """)
+
+          open("app/app/src/main/res/values/strings.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
           <resources>
               <string name="app_name">{NAME}</string>
           </resources>
           """)
 
-          # styles.xml — use MaterialComponents to avoid AppCompat issues
-          with open("twa/app/src/main/res/values/styles.xml","w") as f:
-            f.write("""<?xml version="1.0" encoding="utf-8"?>
+          open("app/app/src/main/res/values/styles.xml","w").write("""<?xml version="1.0" encoding="utf-8"?>
           <resources>
-              <style name="AppTheme" parent="android:Theme.NoTitleBar">
-                  <item name="android:windowBackground">#EFEFEF</item>
-                  <item name="android:statusBarColor">#CC1F1F</item>
+              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="colorPrimary">#CC1F1F</item>
+                  <item name="colorPrimaryDark">#AA1010</item>
+                  <item name="colorAccent">#CC1F1F</item>
               </style>
           </resources>
           """)
 
-          print("TWA project created OK")
+          print("WebView project created OK")
           PYEOF
 
       - name: Copy icons
         run: |
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            cp icon-192.png twa/app/src/main/res/mipmap-$d/ic_launcher.png
+            cp icon-192.png app/app/src/main/res/mipmap-$d/ic_launcher.png
           done
 
       - name: Setup Gradle
@@ -179,21 +209,15 @@ jobs:
 
       - name: Build release APK
         run: |
-          echo "sdk.dir=$ANDROID_HOME" > twa/local.properties
-          cd twa
+          echo "sdk.dir=$ANDROID_HOME" > app/local.properties
+          cd app
           gradle assembleRelease --no-daemon
-
-      - name: Find and upload APK
-        run: |
-          APK=$(find twa -name "*.apk" | head -1)
-          echo "APK: $APK"
-          cp "$APK" NashSklad.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: NashSklad-APK
-          path: NashSklad.apk
+          path: app/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
 
       - name: Print keystore base64
