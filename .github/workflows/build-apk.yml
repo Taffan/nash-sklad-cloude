@@ -231,4 +231,3 @@ jobs:
         run: |
           echo "=== Сохраните как KEYSTORE_BASE64 в GitHub Secrets ==="
           base64 keystore.jks
-e64 keystore.jks
