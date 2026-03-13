@@ -143,8 +143,8 @@ jobs:
                   }}
               }}
               compileOptions {{
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
+                  sourceCompatibility JavaVersion.VERSION_11
+                  targetCompatibility JavaVersion.VERSION_11
               }}
           }}
           dependencies {{
@@ -351,7 +351,7 @@ jobs:
                       textRecognizer.process(image)
                           .addOnSuccessListener(result -> {{
                               String text = result.getText().toUpperCase()
-                                  .replaceAll("[\\s\\n]+", " ");
+                                  .replaceAll("[ \t\n\r]+", " ");
                               Pattern p = Pattern.compile("(INC|REQ)([0-9O]{{12}})");
                               Matcher m = p.matcher(text.replaceAll("[^A-Z0-9]", ""));
                               if (m.find()) {{
@@ -378,8 +378,8 @@ jobs:
               }}
 
               private void sendOcrResult(String result) {{
-                  runOnUiThread(() -> webView.evaluateJavascript(
-                      "onOcrResult(" + "\"" + result + "\"" + ")", null));
+                  String js = "onOcrResult('" + result + "')";
+                  runOnUiThread(() -> webView.evaluateJavascript(js, null));
               }}
 
               private void requestCameraPermission() {{
