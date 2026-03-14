@@ -127,6 +127,8 @@ import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
 import android.webkit.WebViewClient;
+import android.webkit.WebChromeClient;
+import android.webkit.PermissionRequest;
 
 public class MainActivity extends Activity {{
 
@@ -140,8 +142,19 @@ public class MainActivity extends Activity {{
   s.setJavaScriptEnabled(true);
   s.setDomStorageEnabled(true);
   s.setAllowFileAccess(true);
+  s.setAllowContentAccess(true);
+  s.setAllowFileAccessFromFileURLs(true);
+  s.setMediaPlaybackRequiresUserGesture(false);
 
   webView.setWebViewClient(new WebViewClient());
+
+  webView.setWebChromeClient(new WebChromeClient() {{
+   @Override
+   public void onPermissionRequest(final PermissionRequest request) {{
+    request.grant(request.getResources());
+   }}
+  }});
+
   webView.loadUrl("file:///android_asset/index.html");
  }}
 
