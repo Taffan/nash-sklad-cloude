@@ -3,13 +3,13 @@ import os, shutil
 PKG = "ru.nashsklad.app"
 NAME = "Наш Склад"
 PKG_PATH = PKG.replace(".", "/")
-KS_PASS = os.environ.get("KS_PASS", "nashsklad123")
 
 dirs = [
-    f"app/src/main/java/{PKG_PATH}",
+    "app/src/main/java/" + PKG_PATH,
     "app/src/main/assets",
     "app/src/main/res/values",
-] + [f"app/src/main/res/mipmap-{x}" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]
+    "app/src/main/res/xml",
+] + ["app/src/main/res/mipmap-" + x for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]
 
 for d in dirs:
     os.makedirs(d, exist_ok=True)
@@ -32,66 +32,49 @@ android.enableJetifier=true
 org.gradle.jvmargs=-Xmx2048m
 """)
 
-open("app/build.gradle","w").write(f"""
-plugins {{ id 'com.android.application' }}
+open("app/build.gradle","w").write("""
+plugins { id 'com.android.application' }
 
-android {{
- namespace '{PKG}'
+android {
+ namespace 'ru.nashsklad.app'
  compileSdk 34
 
- defaultConfig {{
-  applicationId '{PKG}'
+ defaultConfig {
+  applicationId 'ru.nashsklad.app'
   minSdk 21
   targetSdk 34
   versionCode 1
   versionName "1.0"
- }}
+ }
 
- signingConfigs {{
-  release {{
-   storeFile file('../keystore.jks')
-   storePassword '{KS_PASS}'
-   keyAlias 'upload'
-   keyPassword '{KS_PASS}'
-  }}
- }}
+ buildTypes {
+  release {
+   minifyEnabled false
+  }
+ }
 
- buildTypes {{
-  release {{
-   signingConfig signingConfigs.release
-   minifyEnabled true
-   shrinkResources true
-  }}
- }}
-
- compileOptions {{
+ compileOptions {
   sourceCompatibility JavaVersion.VERSION_11
   targetCompatibility JavaVersion.VERSION_11
- }}
-}}
+ }
+}
 
-dependencies {{
-
+dependencies {
  implementation 'androidx.appcompat:appcompat:1.6.1'
  implementation 'androidx.core:core:1.12.0'
  implementation 'androidx.webkit:webkit:1.8.0'
-
- configurations.all {{
-     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
-     exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk8'
- }}
-
-}}
+}
 """)
 
-manifest = f"""<?xml version="1.0" encoding="utf-8"?>
+manifest = """
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
 <uses-permission android:name="android.permission.CAMERA"/>
 <uses-permission android:name="android.permission.INTERNET"/>
 
 <application
- android:label="{NAME}"
+ android:label="Наш Склад"
  android:icon="@mipmap/ic_launcher"
  android:theme="@style/AppTheme"
  android:usesCleartextTraffic="true">
@@ -108,20 +91,42 @@ manifest = f"""<?xml version="1.0" encoding="utf-8"?>
 
  </activity>
 
+ <provider
+  android:name="androidx.core.content.FileProvider"
+  android:authorities="ru.nashsklad.app.provider"
+  android:exported="false"
+  android:grantUriPermissions="true">
+  <meta-data
+   android:name="android.support.FILE_PROVIDER_PATHS"
+   android:resource="@xml/file_paths"/>
+ </provider>
+
 </application>
 </manifest>
 """
 
 open("app/src/main/AndroidManifest.xml","w").write(manifest)
 
-open("app/src/main/res/values/strings.xml","w").write(f"""
+open("app/src/main/res/xml/file_paths.xml","w").write("""
+<paths>
+ <cache-path name="cache" path="."/>
+</paths>
+""")
+
+open("app/src/main/res/values/styles.xml","w").write("""
 <resources>
 <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar"/>
 </resources>
 """)
 
-main = f"""
-package {PKG};
+open("app/src/main/res/values/strings.xml","w").write("""
+<resources>
+<string name="app_name">Наш Склад</string>
+</resources>
+""")
+
+main = """
+package ru.nashsklad.app;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -131,10 +136,6 @@ import android.webkit.WebChromeClient;
 import android.webkit.PermissionRequest;
 import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
-import androidx.webkit.WebViewAssetLoader;
-import androidx.webkit.WebViewClientCompat;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
 
 import android.util.Base64;
 import java.io.File;
@@ -145,22 +146,22 @@ import android.content.Intent;
 
 import androidx.core.content.FileProvider;
 
-public class MainActivity extends Activity {{
+public class MainActivity extends Activity {
 
  WebView webView;
 
- class JSBridge {{
+ class JSBridge {
 
   Activity activity;
 
-  JSBridge(Activity a){{
+  JSBridge(Activity a){
    activity = a;
-  }}
+  }
 
   @JavascriptInterface
-  public void shareXlsx(String base64, String filename){{
+  public void shareXlsx(String base64, String filename){
 
-   try{{
+   try{
 
     byte[] data = Base64.decode(base64, Base64.DEFAULT);
 
@@ -180,19 +181,17 @@ public class MainActivity extends Activity {{
     intent.putExtra(Intent.EXTRA_STREAM, uri);
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-    activity.runOnUiThread(() -> {{
-        activity.startActivity(Intent.createChooser(intent,"Отправить файл"));
-    }});
+    activity.startActivity(Intent.createChooser(intent,"Отправить файл"));
 
-   }}catch(Exception e){{
+   }catch(Exception e){
     e.printStackTrace();
-   }}
+   }
 
-  }}
+  }
 
- }}
+ }
 
- protected void onCreate(Bundle savedInstanceState) {{
+ protected void onCreate(Bundle savedInstanceState) {
   super.onCreate(savedInstanceState);
 
   webView = new WebView(this);
@@ -200,48 +199,28 @@ public class MainActivity extends Activity {{
 
   webView.addJavascriptInterface(new JSBridge(this), "Android");
 
-WebSettings s = webView.getSettings();
+  WebSettings s = webView.getSettings();
+  s.setJavaScriptEnabled(true);
+  s.setDomStorageEnabled(true);
+  s.setAllowFileAccess(true);
+  s.setAllowContentAccess(true);
+  s.setMediaPlaybackRequiresUserGesture(false);
 
-s.setJavaScriptEnabled(true);
-s.setDomStorageEnabled(true);
+  webView.setWebViewClient(new WebViewClient());
 
-s.setAllowFileAccess(true);
-s.setAllowContentAccess(true);
-s.setAllowFileAccessFromFileURLs(true);
-s.setAllowUniversalAccessFromFileURLs(true);
-
-s.setMediaPlaybackRequiresUserGesture(false);
-
-s.setDatabaseEnabled(true);
-s.setCacheMode(WebSettings.LOAD_DEFAULT);
-
-
-final WebViewAssetLoader assetLoader =
- new WebViewAssetLoader.Builder()
-  .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-  .build();
-
-webView.setWebViewClient(new WebViewClientCompat() {{
- @Override
- public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {{
-  return assetLoader.shouldInterceptRequest(request.getUrl());
- }}
-}});
-
-  webView.setWebChromeClient(new WebChromeClient() {{
+  webView.setWebChromeClient(new WebChromeClient() {
    @Override
-   public void onPermissionRequest(final PermissionRequest request) {{
+   public void onPermissionRequest(final PermissionRequest request) {
     request.grant(request.getResources());
-   }}
-  }});
+   }
+  });
 
-  webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
- }}
+  webView.loadUrl("file:///android_asset/index.html");
+ }
 
-}}
+}
 """
 
-
-open(f"app/src/main/java/{PKG_PATH}/MainActivity.java","w").write(main)
+open("app/src/main/java/" + PKG_PATH + "/MainActivity.java","w").write(main)
 
 print("Android project generated")
