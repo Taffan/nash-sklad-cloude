@@ -127,18 +127,31 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.webkit.WebView;
 import android.webkit.WebSettings;
-import android.webkit.WebViewClient;
-import androidx.webkit.WebViewAssetLoader;
-import androidx.webkit.WebViewClientCompat;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
 import android.webkit.WebChromeClient;
 import android.webkit.PermissionRequest;
+import android.webkit.WebViewClient;
+
+import android.Manifest;
+import android.content.pm.PackageManager;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class MainActivity extends Activity {{
 
+ private static final int CAMERA_REQUEST = 1;
+
  protected void onCreate(Bundle savedInstanceState) {{
   super.onCreate(savedInstanceState);
+
+  if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+   != PackageManager.PERMISSION_GRANTED) {{
+
+   ActivityCompat.requestPermissions(
+    this,
+    new String[]{{Manifest.permission.CAMERA}},
+    CAMERA_REQUEST
+   );
+  }}
 
   WebView webView = new WebView(this);
   setContentView(webView);
@@ -148,20 +161,8 @@ public class MainActivity extends Activity {{
   s.setDomStorageEnabled(true);
   s.setAllowFileAccess(true);
   s.setAllowContentAccess(true);
-  s.setAllowFileAccessFromFileURLs(true);
-  s.setMediaPlaybackRequiresUserGesture(false);
 
-  final WebViewAssetLoader assetLoader =
- new WebViewAssetLoader.Builder()
-  .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-  .build();
-
-webView.setWebViewClient(new WebViewClientCompat() {
- @Override
- public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-  return assetLoader.shouldInterceptRequest(request.getUrl());
- }
-});
+  webView.setWebViewClient(new WebViewClient());
 
   webView.setWebChromeClient(new WebChromeClient() {{
    @Override
