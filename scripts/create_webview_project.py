@@ -176,7 +176,9 @@ public class MainActivity extends Activity {{
     intent.putExtra(Intent.EXTRA_STREAM, uri);
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-    activity.startActivity(Intent.createChooser(intent,"Отправить файл"));
+    activity.runOnUiThread(() -> {
+        activity.startActivity(Intent.createChooser(intent,"Отправить файл"));
+    });
 
    }}catch(Exception e){{
     e.printStackTrace();
