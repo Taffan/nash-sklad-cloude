@@ -216,7 +216,17 @@ s.setDatabaseEnabled(true);
 s.setCacheMode(WebSettings.LOAD_DEFAULT);
 
 
-  webView.setWebViewClient(new WebViewClient());
+final WebViewAssetLoader assetLoader =
+ new WebViewAssetLoader.Builder()
+  .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+  .build();
+
+webView.setWebViewClient(new WebViewClientCompat() {
+ @Override
+ public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+  return assetLoader.shouldInterceptRequest(request.getUrl());
+ }
+});
 
   webView.setWebChromeClient(new WebChromeClient() {{
    @Override
