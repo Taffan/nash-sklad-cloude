@@ -1,15 +1,14 @@
 name: Build APK
 
 on:
-  push:
-    branches: [main, master]
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
   build:
+
     runs-on: ubuntu-latest
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - uses: actions/checkout@v4
@@ -17,182 +16,21 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: 17
 
       - name: Generate keystore
         run: |
-          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
-          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
-          echo "KS_PASS=$PASS" >> $GITHUB_ENV
+          keytool -genkeypair \
+          -keystore keystore.jks \
+          -alias upload \
+          -storepass nashsklad123 \
+          -keypass nashsklad123 \
+          -dname "CN=NashSklad" \
+          -keyalg RSA \
+          -validity 20000
 
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
-          else
-            keytool -genkeypair \
-              -keystore keystore.jks -alias upload \
-              -keyalg RSA -keysize 2048 -validity 9125 \
-              -storepass "$PASS" -keypass "$PASS" \
-              -dname "CN=NashSklad,O=NashSklad,C=RU" \
-              -noprompt
-            echo "keystore_is_new=true" >> $GITHUB_ENV
-          fi
-
-      - name: Inline JS libraries into HTML
-        run: |
-          python3 - << 'PYEOF'
-          import urllib.request
-
-          with open("index.html", encoding="utf-8") as f:
-              html = f.read()
-
-          libs = [
-            ("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
-             '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>'),
-            ("https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js",
-             '<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>'),
-            ("https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js",
-             '<script src="https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js"></script>'),
-          ]
-
-          for url, tag in libs:
-              with urllib.request.urlopen(url) as r:
-                  code = r.read().decode("utf-8", errors="replace")
-              html = html.replace(tag, f"<script>\n{code}\n</script>")
-
-          with open("index.html", "w", encoding="utf-8") as f:
-              f.write(html)
-          PYEOF
-
-      - name: Create WebView Android project
-        run: |
-          python3 - << 'PYEOF'
-          import os, shutil
-
-          PKG      = "ru.nashsklad.app"
-          NAME     = "Наш Склад"
-          KS_PASS  = os.environ.get("KS_PASS", "nashsklad123")
-          PKG_PATH = PKG.replace('.', '/')
-
-          DIRS = [
-            f"app/src/main/java/{PKG_PATH}/",
-            "app/src/main/assets/",
-            "app/src/main/res/values/",
-          ] + [f"app/src/main/res/mipmap-{x}/" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]
-
-          for d in DIRS:
-              os.makedirs(d, exist_ok=True)
-
-          shutil.copy("index.html", "app/src/main/assets/index.html")
-
-          # Gradle settings
-          open("settings.gradle","w").write("include ':app'\n")
-
-          open("build.gradle","w").write(
-            "buildscript {\n"
-            "    repositories { google(); mavenCentral() }\n"
-            "    dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }\n"
-            "}\n"
-            "allprojects {\n"
-            "    repositories { google(); mavenCentral() }\n"
-            "}\n"
-          )
-
-          open("gradle.properties","w").write(
-            "android.useAndroidX=true\n"
-            "android.enableJetifier=true\n"
-            "org.gradle.jvmargs=-Xmx2048m\n"
-          )
-
-          # App module build.gradle
-          open("app/build.gradle","w").write(f"""plugins {{ id 'com.android.application' }}
-          android {{
-              namespace '{PKG}'
-              compileSdk 34
-              defaultConfig {{
-                  applicationId '{PKG}'
-                  minSdk 21
-                  targetSdk 34
-                  versionCode 1
-                  versionName '1.0'
-              }}
-              signingConfigs {{
-                  release {{
-                      storeFile file('../keystore.jks')
-                      storePassword '{KS_PASS}'
-                      keyAlias 'upload'
-                      keyPassword '{KS_PASS}'
-                  }}
-              }}
-              buildTypes {{
-                  release {{
-                      signingConfig signingConfigs.release
-                      minifyEnabled false
-                  }}
-              }}
-              compileOptions {{
-                  sourceCompatibility JavaVersion.VERSION_11
-                  targetCompatibility JavaVersion.VERSION_11
-              }}
-          }}
-          dependencies {{
-              implementation 'androidx.appcompat:appcompat:1.6.1'
-              implementation 'androidx.core:core:1.12.0'
-          }}
-          """)
-
-          # AndroidManifest
-          os.makedirs("app/src/main/res/xml/", exist_ok=True)
-          open("app/src/main/AndroidManifest.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:label="{NAME}"
-                  android:allowBackup="true"
-                  android:icon="@mipmap/ic_launcher"
-                  android:theme="@style/AppTheme">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN"/>
-                          <category android:name="android.intent.category.LAUNCHER"/>
-                      </intent-filter>
-                  </activity>
-              </application>
-          </manifest>
-          """)
-
-          # Minimal MainActivity.java
-          open(f"app/src/main/java/{PKG_PATH}/MainActivity.java","w").write(f"""package {PKG};
-
-          import android.app.Activity;
-          import android.os.Bundle;
-          import android.webkit.WebView;
-
-          public class MainActivity extends Activity {{
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {{
-                  super.onCreate(savedInstanceState);
-                  WebView webView = new WebView(this);
-                  setContentView(webView);
-                  webView.getSettings().setJavaScriptEnabled(true);
-                  webView.loadUrl("file:///android_asset/index.html");
-              }}
-          }}
-          """)
-
-          # Strings and styles
-          open("app/src/main/res/values/strings.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <string name="app_name">{NAME}</string>
-          </resources>
-          """)
-
-          open("app/src/main/res/values/styles.xml","w").write("""<?xml version="1.0" encoding="utf-8"?>
-          <resources>
-              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar"/>
-          </resources>
-          """)
-
-          print("WebView project created OK")
-          PYEOF
+      - name: Generate Android project
+        run: python3 scripts/create_webview_project.py
 
       - name: Copy icons
         run: |
@@ -202,24 +40,15 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.6'
 
-      - name: Build release APK
+      - name: Build release
         run: |
           echo "sdk.dir=$ANDROID_HOME" > app/local.properties
           cd app
           gradle assembleRelease --no-daemon
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: NashSklad-APK
+          name: nash-sklad-apk
           path: app/build/outputs/apk/release/app-release.apk
-          retention-days: 30
-
-      - name: Print keystore base64
-        if: env.keystore_is_new == 'true'
-        run: |
-          echo "=== Сохраните как KEYSTORE_BASE64 ==="
-          base64 keystore.jks
