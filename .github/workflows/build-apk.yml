@@ -2,76 +2,53 @@ name: Build APK
 
 on:
   push:
-    branches: [main, master]
-  workflow_dispatch:
+    branches: [ main ]
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-    - uses: actions/setup-java@v4
+    - name: Setup JDK 17
+      uses: actions/setup-java@v3
       with:
         distribution: temurin
-        java-version: '17'
-
-    - name: Generate keystore
-      run: |
-        PASS="${{ secrets.KEYSTORE_PASSWORD }}"
-        if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
-        echo "KS_PASS=$PASS" >> $GITHUB_ENV
-
-        if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
-        else
-          keytool -genkeypair \
-            -keystore keystore.jks -alias upload \
-            -keyalg RSA -keysize 2048 -validity 9125 \
-            -storepass "$PASS" -keypass "$PASS" \
-            -dname "CN=NashSklad,O=NashSklad,C=RU" \
-            -noprompt
-          echo "keystore_is_new=true" >> $GITHUB_ENV
-        fi
-
-    - name: Inline JS libraries into HTML
-      run: |
-        python3 scripts/inline_libs.py
-
-    - name: Create WebView Android project
-      run: |
-        python3 scripts/create_android_project.py
-
-    - name: Copy icons
-      run: |
-        for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-          cp icon-192.png app/app/src/main/res/mipmap-$d/ic_launcher.png
-        done
+        java-version: 17
 
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
       with:
-        gradle-version: '8.6'
+        gradle-version: 8.6
 
-    - name: Build release APK
-      run: |
-        echo "android.useAndroidX=true" >> app/gradle.properties
-        echo "sdk.dir=$ANDROID_HOME" > app/local.properties
-        cd app
-        gradle assembleRelease --no-daemon
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
+    - name: Cache Gradle
+      uses: actions/cache@v3
       with:
-        name: NashSklad-APK
-        path: app/app/build/outputs/apk/release/app-release.apk
-        retention-days: 30
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper/
+        key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+        restore-keys: |
+          gradle-${{ runner.os }}-
 
-    - name: Print keystore base64
-      if: env.keystore_is_new == 'true'
-      run: |
-        echo "=== Сохраните как KEYSTORE_BASE64 ==="
-        base64 keystore.jks
+    - name: Configure Android SDK
+      run: echo "sdk.dir=$ANDROID_HOME" > app/local.properties
+
+    - name: Enable AndroidX
+      run: echo "android.useAndroidX=true" >> app/gradle.properties
+
+    - name: Build APK
+      working-directory: app
+      run: ./gradlew assembleRelease --no-daemon
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-release-apk
+        path: app/app/build/outputs/apk/release/app-release.apk
