@@ -155,7 +155,7 @@ public class MainActivity extends Activity {{
    }}
   }});
 
-  webView.loadUrl("file:///android_asset/index.html");
+  webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
  }}
 
 }}
