@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.netlify.serene_pavlova_a08285.twa",
+    "sha256_cert_fingerprints": ["2D:81:3B:EB:33:97:2E:D1:A3:F2:D0:79:02:23:3D:EE:DE:D5:FC:9F:AA:13:C4:6A:CE:EF:78:7F:5D:7D:E6:06"]
+  }
+}]
