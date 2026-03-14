@@ -150,7 +150,17 @@ public class MainActivity extends Activity {{
   s.setAllowFileAccessFromFileURLs(true);
   s.setMediaPlaybackRequiresUserGesture(false);
 
-  webView.setWebViewClient(new WebViewClient());
+  final WebViewAssetLoader assetLoader =
+ new WebViewAssetLoader.Builder()
+  .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+  .build();
+
+webView.setWebViewClient(new WebViewClientCompat() {
+ @Override
+ public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+  return assetLoader.shouldInterceptRequest(request.getUrl());
+ }
+});
 
   webView.setWebChromeClient(new WebChromeClient() {{
    @Override
