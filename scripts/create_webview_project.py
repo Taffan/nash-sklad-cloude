@@ -221,12 +221,12 @@ final WebViewAssetLoader assetLoader =
   .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
   .build();
 
-webView.setWebViewClient(new WebViewClientCompat() {
+webView.setWebViewClient(new WebViewClientCompat() {{
  @Override
- public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+ public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {{
   return assetLoader.shouldInterceptRequest(request.getUrl());
- }
-});
+ }}
+}});
 
   webView.setWebChromeClient(new WebChromeClient() {{
    @Override
