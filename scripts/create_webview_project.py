@@ -92,6 +92,7 @@ manifest = f"""<?xml version="1.0" encoding="utf-8"?>
 <application
  android:label="{NAME}"
  android:icon="@mipmap/ic_launcher"
+ android:theme="@style/AppTheme"
  android:usesCleartextTraffic="true">
 
  <activity
