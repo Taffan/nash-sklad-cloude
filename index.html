@@ -1811,6 +1811,54 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('visibilitychange', () => { if (document.hidden && camActive) stopCam(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
+async function recognizeRequest(canvas){
+
+  const worker = await Tesseract.createWorker('rus');
+
+  const { data } = await worker.recognize(canvas);
+
+  let text = data.text.toUpperCase();
+
+  text = text
+    .replace(/O/g,'0')
+    .replace(/I/g,'1')
+    .replace(/[^A-Z0-9]/g,'');
+
+  const match = text.match(/(INC|REQ)[0-9]{12}/);
+
+  if(match){
+      document.getElementById("f-req").value = match[0];
+  }
+
+  await worker.terminate();
+}
+
+function captureFrame(){
+
+  const video = document.querySelector("video");
+
+  const canvas = document.createElement("canvas");
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const ctx = canvas.getContext("2d");
+
+  ctx.drawImage(video,0,0);
+
+  return canvas;
+}
+
+async function scanRequest(){
+
+  const canvas = captureFrame();
+
+  await recognizeRequest(canvas);
+
+}
+
+
+  
 </script>
 </body>
 </html>
