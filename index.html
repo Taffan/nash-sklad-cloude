@@ -725,23 +725,30 @@ body {
             </div>
           </div>
           <!-- OCR модальное окно -->
-          <div id="ocr-modal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.85);flex-direction:column;align-items:center;justify-content:center;gap:12px;">
-            <div style="color:#fff;font-size:14px;font-weight:600;">Наведите камеру на номер заявки</div>
-            <div style="position:relative;width:90vw;max-width:400px;border-radius:12px;overflow:hidden;">
-              <video id="ocr-video" playsinline autoplay muted style="width:100%;display:block;border-radius:12px;"></video>
-              <!-- Рамка-прицел для номера заявки -->
+          <div id="ocr-modal" style="display:none;position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.92);flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;box-sizing:border-box;">
+            <div style="color:#fff;font-size:16px;font-weight:700;">Номер заявки</div>
+            <!-- Превью камеры (только для WebView-камеры) -->
+            <div id="ocr-cam-wrap" style="position:relative;width:90vw;max-width:400px;border-radius:12px;overflow:hidden;display:none;">
+              <video id="ocr-video" playsinline autoplay muted style="width:100%;display:block;border-radius:12px;background:#222;min-height:140px;"></video>
               <div style="position:absolute;inset:0;pointer-events:none;display:flex;align-items:center;justify-content:center;">
-                <div style="width:92%;height:72px;border:3px solid rgba(255,200,0,0.95);border-radius:8px;box-shadow:0 0 0 1000px rgba(0,0,0,0.45);"></div>
+                <div style="width:88%;height:64px;border:3px solid rgba(255,200,0,0.95);border-radius:8px;box-shadow:0 0 0 1000px rgba(0,0,0,0.5);"></div>
               </div>
-              <div id="ocr-status" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;color:#fff;font-size:12px;background:rgba(0,0,0,0.6);padding:5px 8px;border-radius:0 0 10px 10px;"></div>
             </div>
-            <div id="ocr-hint" style="display:none;background:rgba(180,0,0,0.75);color:#fff;font-size:12px;padding:7px 14px;border-radius:8px;text-align:center;max-width:320px;">
-              Принимается только формат: <b>REQ000000000000</b> или <b>INC000000000000</b>
+            <!-- Статус ML Kit -->
+            <div id="ocr-status" style="color:rgba(255,255,255,0.8);font-size:13px;text-align:center;min-height:18px;"></div>
+            <!-- Поле ввода -->
+            <div style="width:100%;max-width:360px;">
+              <input id="ocr-manual-input" type="text" placeholder="INC000000000000"
+                style="width:100%;padding:14px;border-radius:12px;border:2px solid var(--accent);font-size:20px;background:#fff;color:#111;box-sizing:border-box;letter-spacing:2px;text-align:center;font-family:monospace;"
+                oninput="ocrInputFilter(this)"
+                onkeydown="if(event.key==='Enter')applyOcrManual()">
+              <div id="ocr-counter" style="text-align:right;color:rgba(255,255,255,0.45);font-size:12px;margin-top:4px;">0 / 15</div>
             </div>
-            <div style="display:flex;gap:10px;">
-              <button id="ocr-btn" onclick="captureOCR()" style="padding:10px 24px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Распознать</button>
-              <button onclick="closeOCR()" style="padding:10px 24px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;cursor:pointer;">Отмена</button>
+            <div style="display:flex;gap:10px;width:100%;max-width:360px;">
+              <button id="ocr-scan-btn" onclick="startMLKitOCR()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Сканировать</button>
+              <button onclick="applyOcrManual()" style="flex:1;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">✓ Применить</button>
             </div>
+            <button onclick="closeOCR()" style="padding:10px 32px;border-radius:10px;border:none;background:transparent;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;">Отмена</button>
           </div>
         </div>
 
@@ -1394,6 +1401,29 @@ function renderRecs() {
   list.innerHTML=f.map(r=>`<div class="rc"><div class="rc-top"><div class="rc-bc">${r.barcode}</div><span class="rc-type ${r.section==='income'?'inc':'exp'}">${r.section==='income'?'▲ Поступление':'▼ Расход'}</span><div class="rc-time">${r.time}</div><button class="rc-del" onclick="delRec('${r.id}')">×</button></div><div class="rc-chips">${r.model?`<div class="chip"><span class="cl">Модель&nbsp;</span>${r.model}</div>`:''} ${r.fio?`<div class="chip"><span class="cl">ФИО&nbsp;</span>${r.fio}</div>`:''} ${r.from?`<div class="chip"><span class="cl">Откуда&nbsp;</span>${r.from}</div>`:''} ${r.to?`<div class="chip"><span class="cl">Куда&nbsp;</span>${r.to}</div>`:''} ${r.req?`<div class="chip"><span class="cl">Заявка&nbsp;</span>${r.req}</div>`:''} ${r.date?`<div class="chip"><span class="cl">Дата&nbsp;</span>${fmtD(r.date)}</div>`:''} <div class="chip"><span class="cl">Состояние&nbsp;</span>${r.status==='repair'?'В ремонт':'В резерв'}</div><div class="chip"><span class="cl">Кол-во&nbsp;</span>${r.qty} шт.</div></div></div>`).join('');
 }
 
+
+function exportCsv() {
+  // CSV fallback когда XLSX недоступен
+  const dateStr = new Date().toLocaleDateString('ru-RU');
+  const rows = [['Тип','КЕ','Модель','Кол-во','Состояние','ФИО','Откуда','Куда','Дата','Заявка','Время']];
+  records.forEach(r => rows.push([
+    r.section==='income'?'Поступление':'Расход',
+    r.barcode||'', r.model||'', r.qty||1,
+    r.status==='repair'?'В ремонт':'В резерв',
+    r.fio||'', r.from||'', r.to||'',
+    fmtD(r.date), r.req||'', r.time||''
+  ]));
+  const csv = rows.map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `НашСклад_${dateStr.replace(/\./g,'-')}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ CSV экспорт готов', 'ok');
+}
+
 function exportXlsx() {
   if (!records.length) { toast('⚠ Нет данных','err'); return; }
   const wb = XLSX.utils.book_new();
@@ -1454,8 +1484,27 @@ function exportXlsx() {
   wsAll['!freeze'] = {xSplit:0, ySplit:1};
   XLSX.utils.book_append_sheet(wb, wsAll, 'Все записи');
 
-  XLSX.writeFile(wb, `НашСклад_${dateStr.replace(/\./g,'-')}.xlsx`);
-  toast('✓ Экспорт готов', 'ok');
+  const fname = `НашСклад_${dateStr.replace(/\./g,'-')}.xlsx`;
+  try {
+    if (typeof XLSX === 'undefined') {
+      toast('⚠ XLSX не загружен, экспорт CSV', 'err');
+      exportCsv(); return;
+    }
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+    if (window.Android && typeof Android.saveXlsx === 'function') {
+      Android.saveXlsx(wbout, fname);
+    } else {
+      // Браузер fallback
+      const a = document.createElement('a');
+      a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + wbout;
+      a.download = fname;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      toast('✓ ' + fname, 'ok');
+    }
+  } catch(e) {
+    toast('⚠ ' + e.message, 'err');
+    exportCsv();
+  }
 }
 
 function openNcModal() {
@@ -1572,84 +1621,106 @@ function sendByEmail() {
 
   const subject = encodeURIComponent(`Наш Склад — отчёт от ${date}`);
   const body = encodeURIComponent(lines.join('\n'));
-  window.location.href = `mailto:?subject=${subject}&body=${body}`;
-}
-
-async function startOCR() {
-  const modal = document.getElementById('ocr-modal');
-  modal.style.display = 'flex';
-  try {
-    ocrStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: {ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
-    });
-    document.getElementById('ocr-video').srcObject = ocrStream;
-    document.getElementById('ocr-status').textContent = 'Готово — нажмите «Распознать»';
-    document.getElementById('ocr-status').style.color = '';
-    const hint = document.getElementById('ocr-hint');
-    if (hint) { hint.style.display = 'none'; }
-  } catch(e) {
-    document.getElementById('ocr-status').textContent = '✕ Нет доступа к камере';
-  }
-}
-
-async function captureOCR() {
-  const video = document.getElementById('ocr-video');
-  const status = document.getElementById('ocr-status');
-  if (!ocrStream || video.readyState < 2) { toast('⚠ Камера не готова', 'err'); return; }
-
-  const cv = document.createElement('canvas');
-  cv.width = video.videoWidth; cv.height = video.videoHeight;
-  cv.getContext('2d').drawImage(video, 0, 0);
-
-  status.textContent = '⏳ Распознавание...';
-  status.style.color = '';
-  document.getElementById('ocr-btn').disabled = true;
-
-  try {
-    const worker = await Tesseract.createWorker('eng');
-    await worker.setParameters({
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_/'
-    });
-    const { data: { text } } = await worker.recognize(cv);
-    await worker.terminate();
-
-    // Нормализуем текст и приводим к верхнему регистру
-    const clean = text.replace(/[\r\n\s]+/g, ' ').trim().toUpperCase();
-
-    // Паттерн: INC или REQ + необязательный разделитель + цифры (6-18 знаков)
-    // Примеры: REQ000000000000, INC-0000001, INC_00000123
-    // OCR часто путает O и 0 — заменяем O→0 в цифровой части
-    const REQ_PATTERN = /\b(INC|REQ)[-_]?([0-9O]{6,18})\b/g;
-    const matches = [...clean.matchAll(REQ_PATTERN)];
-
-    if (matches.length > 0) {
-      const raw = matches[0][0].toUpperCase();
-      // Нормализуем: убираем разделитель, заменяем O→0 в числовой части
-      const prefix = raw.match(/^(INC|REQ)/)[0];
-      const digits = raw.slice(prefix.length).replace(/^[-_]/, '').replace(/O/g, '0');
-      const result = prefix + digits;
-      document.getElementById('f-req').value = result;
-      status.textContent = '✓ Найдено: ' + result;
-      status.style.color = 'green';
-      toast('✓ ' + result, 'ok');
-      setTimeout(closeOCR, 900);
-    } else {
-      const preview = clean.slice(0, 50) || '(пусто)';
-      status.textContent = '⚠ Номер не найден. Нужен формат INC... или REQ...';
-      status.style.color = 'var(--danger)';
-      document.getElementById('ocr-hint').style.display = 'block';
+  const subjectDecoded = decodeURIComponent(subject);
+  const bodyDecoded = decodeURIComponent(body);
+  if (window.Android && Android.sendEmail) {
+    // Нативный Android — открывает почтовый клиент через Intent
+    Android.sendEmail(subjectDecoded, bodyDecoded);
+  } else {
+    try {
+      window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+    } catch(e) {
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(bodyDecoded).then(() => toast('✓ Скопировано в буфер', 'ok'));
+      } else {
+        toast('⚠ Откройте почту вручную', 'err');
+      }
     }
-  } catch(e) {
-    status.textContent = '✕ Ошибка распознавания';
-    status.style.color = 'var(--danger)';
   }
-  document.getElementById('ocr-btn').disabled = false;
+}
+
+function startOCR() {
+  document.getElementById('ocr-modal').style.display = 'flex';
+  document.getElementById('ocr-manual-input').value = '';
+  document.getElementById('ocr-status').textContent = '';
+  const counter = document.getElementById('ocr-counter');
+  if (counter) counter.textContent = '0 / 15';
+  setTimeout(() => document.getElementById('ocr-manual-input').focus(), 150);
+}
+
+function ocrInputFilter(input) {
+  let v = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (v.length > 15) v = v.slice(0, 15);
+  input.value = v;
+  const counter = document.getElementById('ocr-counter');
+  if (counter) {
+    counter.textContent = v.length + ' / 15';
+    counter.style.color = v.length === 15 ? '#4caf50' : 'rgba(255,255,255,0.45)';
+  }
+  const valid = /^(INC|REQ)[0-9]{12}$/.test(v);
+  input.style.borderColor = valid ? '#4caf50' : 'var(--accent)';
+}
+
+function startMLKitOCR() {
+  if (window.Android && typeof Android.startTextOCR === 'function') {
+    document.getElementById('ocr-status').textContent = '⏳ Наведите камеру на номер заявки...';
+    document.getElementById('ocr-scan-btn').disabled = true;
+    Android.startTextOCR();
+  } else {
+    document.getElementById('ocr-status').textContent = 'ML Kit недоступен — введите вручную';
+  }
+}
+
+// Вызывается из Java когда ML Kit нашёл текст
+function onOcrResult(result) {
+  const btn = document.getElementById('ocr-scan-btn');
+  if (btn) btn.disabled = false;
+  if (result.startsWith('FOUND:')) {
+    const num = result.slice(6);
+    document.getElementById('ocr-manual-input').value = num;
+    ocrInputFilter(document.getElementById('ocr-manual-input'));
+    document.getElementById('ocr-status').textContent = '✓ Найдено: ' + num;
+    document.getElementById('ocr-status').style.color = '#4caf50';
+    toast('✓ ' + num, 'ok');
+    if (window.Android) Android.stopTextOCR();
+    setTimeout(() => {
+      document.getElementById('f-req').value = num;
+      closeOCR();
+    }, 700);
+  } else if (result === 'SCANNING') {
+    // продолжаем сканирование
+  } else if (result.startsWith('ERROR:')) {
+    document.getElementById('ocr-status').textContent = '✕ ' + result.slice(6);
+    document.getElementById('ocr-status').style.color = 'var(--danger)';
+  }
+}
+
+function captureOCR() { startMLKitOCR(); }
+
+function applyOcrManual() {
+  const input = document.getElementById('ocr-manual-input');
+  if (!input) return;
+  const raw = input.value.trim().toUpperCase().replace(/[-_\s]/g,'');
+  if (!raw) { toast('⚠ Введите номер заявки', 'err'); return; }
+  const m = raw.match(/^(INC|REQ)([0-9O]{12})$/);
+  if (m) {
+    const result = m[1] + m[2].replace(/O/g,'0');
+    document.getElementById('f-req').value = result;
+    toast('✓ ' + result, 'ok');
+    closeOCR();
+  } else if (raw.length >= 3) {
+    document.getElementById('f-req').value = input.value.trim();
+    toast('✓ Принято', 'ok');
+    closeOCR();
+  } else {
+    toast('⚠ Слишком короткий номер', 'err');
+  }
 }
 
 function closeOCR() {
-  if (ocrStream) { ocrStream.getTracks().forEach(t => t.stop()); ocrStream = null; }
-  document.getElementById('ocr-video').srcObject = null;
   document.getElementById('ocr-modal').style.display = 'none';
+  const inp = document.getElementById('ocr-manual-input');
+  if (inp) inp.value = '';
 }
 
 function toggleSound() {
