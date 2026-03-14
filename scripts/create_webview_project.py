@@ -74,6 +74,7 @@ dependencies {{
 
  implementation 'androidx.appcompat:appcompat:1.6.1'
  implementation 'androidx.core:core:1.12.0'
+ implementation 'androidx.webkit:webkit:1.8.0'
 
  configurations.all {{
      exclude group: 'org.jetbrains.kotlin', module: 'kotlin-stdlib-jdk7'
