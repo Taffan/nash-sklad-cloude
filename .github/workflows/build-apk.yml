@@ -49,6 +49,10 @@ jobs:
             mkdir -p app/app/src/main/res/mipmap-$d
           done
           echo "include ':app'" > app/settings.gradle
+          # Создаём gradle.properties с AndroidX
+          echo "android.useAndroidX=true" >> app/gradle.properties
+          echo "android.enableJetifier=true" >> app/gradle.properties
+          echo "org.gradle.jvmargs=-Xmx2048m" >> app/gradle.properties
 
       - name: Copy assets
         run: |
