@@ -23,10 +23,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.6
-      - name: Copy web files
+
+      - name: Prepare Android assets
         run: |
           mkdir -p app/src/main/assets
           cp index.html app/src/main/assets/index.html
+
+      - name: Add app icons
+        run: |
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            mkdir -p app/src/main/res/mipmap-$d
+            cp icon-192.png app/src/main/res/mipmap-$d/ic_launcher.png
+          done
 
       - name: Build APK
         run: |
