@@ -30,6 +30,7 @@ open("gradle.properties","w").write("""
 android.useAndroidX=true
 android.enableJetifier=true
 org.gradle.jvmargs=-Xmx2048m
+kotlin.stdlib.default.dependency=false
 """)
 
 open("app/build.gradle","w").write("""
