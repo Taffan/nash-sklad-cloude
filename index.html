@@ -1492,7 +1492,7 @@ function exportXlsx() {
     }
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
     if (window.Android && typeof Android.saveXlsx === 'function') {
-      Android.shareXlsx(wbout, fname);
+      Android.saveXlsx(wbout, fname);
     } else {
       // Браузер fallback
       const a = document.createElement('a');
