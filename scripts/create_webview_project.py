@@ -130,7 +130,13 @@ import android.webkit.WebSettings;
 import android.webkit.WebChromeClient;
 import android.webkit.PermissionRequest;
 import android.webkit.WebViewClient;
-
+import android.webkit.JavascriptInterface;
+import android.util.Base64;
+import java.io.File;
+import java.io.FileOutputStream;
+import android.net.Uri;
+import android.content.Intent;
+import androidx.core.content.FileProvider;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import androidx.core.app.ActivityCompat;
