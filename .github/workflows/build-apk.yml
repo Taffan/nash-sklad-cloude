@@ -9,73 +9,491 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      JAVA_HOME: /usr/lib/jvm/adoptopenjdk-17-hotspot
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
-      # 1️⃣ Checkout repository
       - uses: actions/checkout@v4
 
-      # 2️⃣ Setup Java
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      # 3️⃣ Setup Android SDK
-      - uses: android-actions/setup-android@v2
-        with:
-          api-level: 34
-          build-tools: 34.0.0
-
-      # 4️⃣ Generate keystore if missing
       - name: Generate keystore
         run: |
-          mkdir -p app
+          PASS="${{ secrets.KEYSTORE_PASSWORD }}"
+          if [ -z "$PASS" ]; then PASS="nashsklad123"; fi
+          echo "KS_PASS=$PASS" >> $GITHUB_ENV
+
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/keystore.jks
-            echo "Loaded keystore from secrets"
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore.jks
           else
-            echo "Generating new keystore..."
             keytool -genkeypair \
-              -keystore app/keystore.jks \
-              -alias upload \
-              -keyalg RSA \
-              -keysize 2048 \
-              -validity 9125 \
-              -storepass nashsklad123 \
-              -keypass nashsklad123 \
+              -keystore keystore.jks -alias upload \
+              -keyalg RSA -keysize 2048 -validity 9125 \
+              -storepass "$PASS" -keypass "$PASS" \
               -dname "CN=NashSklad,O=NashSklad,C=RU" \
               -noprompt
-            echo "Keystore generated at app/keystore.jks"
+            echo "keystore_is_new=true" >> $GITHUB_ENV
           fi
 
-      # 5️⃣ Copy icons to all mipmap folders
+      - name: Inline JS libraries into HTML
+        run: |
+          python3 - << 'PYEOF'
+          import urllib.request, re
+
+          with open("index.html", encoding="utf-8") as f:
+            html = f.read()
+
+          libs = [
+            ("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",
+             '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>'),
+            ("https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js",
+             '<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>'),
+            ("https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js",
+             '<script src="https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js"></script>'),
+          ]
+
+          for url, tag in libs:
+            print(f"Downloading {url}...")
+            try:
+              with urllib.request.urlopen(url, timeout=30) as r:
+                code = r.read().decode("utf-8", errors="replace")
+              inline = f"<script>\n{code}\n</script>"
+              html = html.replace(tag, inline)
+              print(f"  OK ({len(code)} chars)")
+            except Exception as e:
+              print(f"  FAILED: {e}")
+
+          with open("index.html", "w", encoding="utf-8") as f:
+            f.write(html)
+          print("Done inlining libraries")
+          PYEOF
+
+      - name: Create WebView Android project
+        run: |
+          python3 - << 'PYEOF'
+          import os, shutil
+
+          PKG      = "ru.nashsklad.app"
+          NAME     = "Наш Склад"
+          KS_PASS  = os.environ.get("KS_PASS", "nashsklad123")
+          PKG_PATH = PKG.replace('.', '/')
+
+          DIRS = [
+            f"app/app/src/main/java/{PKG_PATH}/",
+            "app/app/src/main/assets/",
+            "app/app/src/main/res/values/",
+          ] + [f"app/app/src/main/res/mipmap-{x}/" for x in ["mdpi","hdpi","xhdpi","xxhdpi","xxxhdpi"]]
+
+          for d in DIRS:
+            os.makedirs(d, exist_ok=True)
+
+          shutil.copy("index.html", "app/app/src/main/assets/index.html")
+
+          open("app/settings.gradle","w").write("include ':app'\n")
+
+          open("app/build.gradle","w").write(
+            "buildscript {\n"
+            "    repositories { google(); mavenCentral() }\n"
+            "    dependencies { classpath 'com.android.tools.build:gradle:8.2.2' }\n"
+            "}\n"
+            "allprojects {\n"
+            "    repositories { google(); mavenCentral() }\n"
+            "    configurations.all {\n"
+            "        resolutionStrategy {\n"
+            "            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'\n"
+            "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'\n"
+            "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'\n"
+            "        }\n"
+            "    }\n"
+            "}\n"
+          )
+
+          open("app/gradle.properties","w").write(
+            "android.useAndroidX=true\n"
+            "android.enableJetifier=true\n"
+            "org.gradle.jvmargs=-Xmx2048m\n"
+            "android.suppressKotlinVersionCompatibilityCheck=true\n"
+          )
+
+          open("app/app/build.gradle","w").write(f"""plugins {{ id 'com.android.application' }}
+          android {{
+              namespace '{PKG}'
+              compileSdk 34
+              defaultConfig {{
+                  applicationId '{PKG}'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }}
+              signingConfigs {{
+                  release {{
+                      storeFile file('../../keystore.jks')
+                      storePassword '{KS_PASS}'
+                      keyAlias 'upload'
+                      keyPassword '{KS_PASS}'
+                  }}
+              }}
+              buildTypes {{
+                  release {{
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }}
+              }}
+              compileOptions {{
+                  sourceCompatibility JavaVersion.VERSION_11
+                  targetCompatibility JavaVersion.VERSION_11
+              }}
+          }}
+          dependencies {{
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'androidx.core:core:1.12.0'
+              implementation 'com.google.mlkit:text-recognition:16.0.0'
+              implementation 'androidx.camera:camera-core:1.3.1'
+              implementation 'androidx.camera:camera-camera2:1.3.1'
+              implementation 'androidx.camera:camera-lifecycle:1.3.1'
+              implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
+              implementation 'com.google.guava:guava:31.1-android'
+          }}
+          """)
+
+          open("app/app/src/main/AndroidManifest.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.CAMERA"/>
+              <uses-feature android:name="android.hardware.camera" android:required="false"/>
+              <application
+                  android:label="{NAME}"
+                  android:icon="@mipmap/ic_launcher"
+                  android:theme="@style/AppTheme"
+                  android:allowBackup="true">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true"
+                      android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+                  <provider
+                      android:name="androidx.core.content.FileProvider"
+                      android:authorities="{PKG}.provider"
+                      android:exported="false"
+                      android:grantUriPermissions="true">
+                      <meta-data
+                          android:name="android.support.FILE_PROVIDER_PATHS"
+                          android:resource="@xml/file_paths"/>
+                  </provider>
+              </application>
+          </manifest>
+          """)
+
+          os.makedirs("app/app/src/main/res/xml/", exist_ok=True)
+          open("app/app/src/main/res/xml/file_paths.xml","w").write("""<?xml version="1.0" encoding="utf-8"?>
+          <paths>
+              <external-files-path name="documents" path="Documents/"/>
+              <files-path name="files" path="."/>
+          </paths>
+          """)
+
+          open(f"app/app/src/main/java/{PKG_PATH}/MainActivity.java","w").write(f"""package {PKG};
+
+          import android.Manifest;
+          import android.app.Activity;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
+          import android.graphics.Bitmap;
+          import android.graphics.BitmapFactory;
+          import android.graphics.ImageFormat;
+          import android.graphics.Rect;
+          import android.graphics.YuvImage;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.os.Environment;
+          import android.util.Base64;
+          import android.webkit.JavascriptInterface;
+          import android.webkit.PermissionRequest;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import android.widget.Toast;
+          import androidx.camera.core.Camera;
+          import androidx.camera.core.CameraSelector;
+          import androidx.camera.core.ImageAnalysis;
+          import androidx.camera.core.ImageProxy;
+          import androidx.camera.core.Preview;
+          import androidx.camera.lifecycle.ProcessCameraProvider;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import androidx.core.content.FileProvider;
+          import androidx.lifecycle.LifecycleOwner;
+          import com.google.common.util.concurrent.ListenableFuture;
+          import com.google.mlkit.vision.common.InputImage;
+          import com.google.mlkit.vision.text.Text;
+          import com.google.mlkit.vision.text.TextRecognition;
+          import com.google.mlkit.vision.text.TextRecognizer;
+          import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+          import java.io.ByteArrayOutputStream;
+          import java.io.File;
+          import java.io.FileOutputStream;
+          import java.nio.ByteBuffer;
+          import java.util.concurrent.ExecutorService;
+          import java.util.concurrent.Executors;
+          import java.util.regex.Matcher;
+          import java.util.regex.Pattern;
+
+          public class MainActivity extends Activity implements LifecycleOwner {{
+
+              private WebView webView;
+              private static final int REQ_CAMERA = 1001;
+              private TextRecognizer textRecognizer;
+              private ExecutorService cameraExecutor;
+              private volatile boolean ocrActive = false;
+              private volatile boolean ocrRunning = false;
+
+              public class AndroidBridge {{
+
+                  @JavascriptInterface
+                  public void saveXlsx(String base64Data, String fileName) {{
+                      try {{
+                          byte[] bytes = Base64.decode(base64Data, Base64.DEFAULT);
+                          File dir = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS);
+                          if (dir == null) dir = getFilesDir();
+                          if (!dir.exists()) dir.mkdirs();
+                          File file = new File(dir, fileName);
+                          FileOutputStream fos = new FileOutputStream(file);
+                          fos.write(bytes);
+                          fos.close();
+                          runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                              "Сохранено: " + file.getAbsolutePath(), Toast.LENGTH_LONG).show());
+                          Uri uri = FileProvider.getUriForFile(
+                              MainActivity.this, "{PKG}.provider", file);
+                          Intent share = new Intent(Intent.ACTION_SEND);
+                          share.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                          share.putExtra(Intent.EXTRA_STREAM, uri);
+                          share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                          startActivity(Intent.createChooser(share, "Сохранить / отправить"));
+                      }} catch (Exception e) {{
+                          runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                              "Ошибка Excel: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                      }}
+                  }}
+
+                  @JavascriptInterface
+                  public void sendEmail(String subject, String body) {{
+                      try {{
+                          Intent intent = new Intent(Intent.ACTION_SENDTO);
+                          intent.setData(Uri.parse("mailto:"));
+                          intent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                          intent.putExtra(Intent.EXTRA_TEXT, body);
+                          startActivity(Intent.createChooser(intent, "Отправить отчёт"));
+                      }} catch (Exception e) {{
+                          runOnUiThread(() -> Toast.makeText(MainActivity.this,
+                              "Почтовый клиент не найден", Toast.LENGTH_SHORT).show());
+                      }}
+                  }}
+
+                  @JavascriptInterface
+                  public void startTextOCR() {{
+                      ocrActive = true;
+                      runOnUiThread(() -> startCameraForOCR());
+                  }}
+
+                  @JavascriptInterface
+                  public void stopTextOCR() {{
+                      ocrActive = false;
+                  }}
+
+                  @JavascriptInterface
+                  public void showToast(String msg) {{
+                      runOnUiThread(() -> Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show());
+                  }}
+              }}
+
+              private void startCameraForOCR() {{
+                  ListenableFuture<ProcessCameraProvider> future =
+                      ProcessCameraProvider.getInstance(this);
+                  future.addListener(() -> {{
+                      try {{
+                          ProcessCameraProvider provider = future.get();
+                          provider.unbindAll();
+
+                          ImageAnalysis analysis = new ImageAnalysis.Builder()
+                              .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                              .build();
+
+                          analysis.setAnalyzer(cameraExecutor, imageProxy -> {{
+                              if (!ocrActive || ocrRunning) {{
+                                  imageProxy.close();
+                                  return;
+                              }}
+                              ocrRunning = true;
+                              processImageForText(imageProxy);
+                          }});
+
+                          provider.bindToLifecycle(this,
+                              CameraSelector.DEFAULT_BACK_CAMERA, analysis);
+                      }} catch (Exception e) {{
+                          sendOcrResult("ERROR:" + e.getMessage());
+                      }}
+                  }}, ContextCompat.getMainExecutor(this));
+              }}
+
+              private void processImageForText(ImageProxy imageProxy) {{
+                  try {{
+                      InputImage image = InputImage.fromMediaImage(
+                          imageProxy.getImage(),
+                          imageProxy.getImageInfo().getRotationDegrees()
+                      );
+                      textRecognizer.process(image)
+                          .addOnSuccessListener(result -> {{
+                              String raw = result.getText().toUpperCase();
+                              StringBuilder sb = new StringBuilder();
+                              for (int ci = 0; ci < raw.length(); ci++) {{
+                                  char ch = raw.charAt(ci);
+                                  if ((ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')) sb.append(ch);
+                              }}
+                              String text = sb.toString();
+                              Pattern p = Pattern.compile("(INC|REQ)([0-9O]{{12}})");
+                              Matcher m = p.matcher(text);
+                              if (m.find()) {{
+                                  String digits = m.group(2).replace("O", "0");
+                                  String found = m.group(1) + digits;
+                                  ocrActive = false;
+                                  sendOcrResult("FOUND:" + found);
+                              }} else {{
+                                  sendOcrResult("SCANNING");
+                              }}
+                              ocrRunning = false;
+                              imageProxy.close();
+                          }})
+                          .addOnFailureListener(e -> {{
+                              ocrRunning = false;
+                              imageProxy.close();
+                              sendOcrResult("ERROR:" + e.getMessage());
+                          }});
+                  }} catch (Exception e) {{
+                      ocrRunning = false;
+                      imageProxy.close();
+                      sendOcrResult("ERROR:" + e.getMessage());
+                  }}
+              }}
+
+              private void sendOcrResult(String result) {{
+                  String js = "onOcrResult('" + result + "')";
+                  runOnUiThread(() -> webView.evaluateJavascript(js, null));
+              }}
+
+              private void requestCameraPermission() {{
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                          != PackageManager.PERMISSION_GRANTED) {{
+                      ActivityCompat.requestPermissions(this,
+                          new String[]{{Manifest.permission.CAMERA}}, REQ_CAMERA);
+                  }}
+              }}
+
+              @Override
+              public void onRequestPermissionsResult(int requestCode,
+                      String[] permissions, int[] grantResults) {{
+                  if (requestCode == REQ_CAMERA && webView != null) {{
+                      webView.reload();
+                  }}
+              }}
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {{
+                  super.onCreate(savedInstanceState);
+                  webView = new WebView(this);
+                  setContentView(webView);
+
+                  requestCameraPermission();
+
+                  textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+                  cameraExecutor = Executors.newSingleThreadExecutor();
+
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setDatabaseEnabled(true);
+                  s.setAllowFileAccessFromFileURLs(true);
+                  s.setAllowUniversalAccessFromFileURLs(true);
+                  s.setMediaPlaybackRequiresUserGesture(false);
+
+                  webView.addJavascriptInterface(new AndroidBridge(), "Android");
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setWebChromeClient(new WebChromeClient() {{
+                      @Override
+                      public void onPermissionRequest(PermissionRequest request) {{
+                          runOnUiThread(() -> request.grant(request.getResources()));
+                      }}
+                  }});
+
+                  webView.loadUrl("file:///android_asset/index.html");
+              }}
+
+              @Override
+              protected void onDestroy() {{
+                  super.onDestroy();
+                  if (cameraExecutor != null) cameraExecutor.shutdown();
+                  if (textRecognizer != null) textRecognizer.close();
+              }}
+
+              @Override
+              public void onBackPressed() {{
+                  if (webView.canGoBack()) webView.goBack();
+                  else super.onBackPressed();
+              }}
+          }}
+          """)
+
+          open("app/app/src/main/res/values/strings.xml","w").write(f"""<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <string name="app_name">{NAME}</string>
+          </resources>
+          """)
+
+          open("app/app/src/main/res/values/styles.xml","w").write("""<?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+                  <item name="colorPrimary">#CC1F1F</item>
+                  <item name="colorPrimaryDark">#AA1010</item>
+                  <item name="colorAccent">#CC1F1F</item>
+              </style>
+          </resources>
+          """)
+
+          print("WebView project created OK")
+          PYEOF
+
       - name: Copy icons
         run: |
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            mkdir -p app/app/src/main/res/mipmap-$d
             cp icon-192.png app/app/src/main/res/mipmap-$d/ic_launcher.png
           done
-          echo "Icons copied to mipmap folders"
 
-      # 6️⃣ Build Debug APK
-      - name: Build Debug APK
-        run: ./gradlew -p app assembleDebug --stacktrace --info
-
-      # 7️⃣ Build Release APK
-      - name: Build Release APK
-        run: ./gradlew -p app assembleRelease --stacktrace --info
-
-      # 8️⃣ Upload Debug APK
-      - uses: actions/upload-artifact@v4
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
         with:
-          name: app-debug-apk
-          path: app/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          gradle-version: '8.6'
 
-      # 9️⃣ Upload Release APK
-      - uses: actions/upload-artifact@v4
+      - name: Build release APK
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > app/local.properties
+          cd app
+          gradle assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release-apk
+          name: NashSklad-APK
           path: app/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
+
+      - name: Print keystore base64
+        if: env.keystore_is_new == 'true'
+        run: |
+          echo "=== Сохраните как KEYSTORE_BASE64 ==="
+          base64 keystore.jks
