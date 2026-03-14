@@ -194,11 +194,21 @@ public class MainActivity extends Activity {{
 
   webView.addJavascriptInterface(new JSBridge(this), "Android");
 
-  WebSettings s = webView.getSettings();
-  s.setJavaScriptEnabled(true);
-  s.setDomStorageEnabled(true);
-  s.setAllowFileAccess(true);
-  s.setAllowContentAccess(true);
+WebSettings s = webView.getSettings();
+
+s.setJavaScriptEnabled(true);
+s.setDomStorageEnabled(true);
+
+s.setAllowFileAccess(true);
+s.setAllowContentAccess(true);
+s.setAllowFileAccessFromFileURLs(true);
+s.setAllowUniversalAccessFromFileURLs(true);
+
+s.setMediaPlaybackRequiresUserGesture(false);
+
+s.setDatabaseEnabled(true);
+s.setCacheMode(WebSettings.LOAD_DEFAULT);
+
 
   webView.setWebViewClient(new WebViewClient());
 
