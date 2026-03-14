@@ -131,79 +131,68 @@ import android.webkit.WebChromeClient;
 import android.webkit.PermissionRequest;
 import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
+
 import android.util.Base64;
 import java.io.File;
 import java.io.FileOutputStream;
+
 import android.net.Uri;
 import android.content.Intent;
+
 import androidx.core.content.FileProvider;
-import android.Manifest;
-import android.content.pm.PackageManager;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 
 public class MainActivity extends Activity {{
 
- private static final int CAMERA_REQUEST = 1;
+ WebView webView;
 
-class JSBridge {
+ class JSBridge {{
 
- Activity activity;
+  Activity activity;
 
- JSBridge(Activity a){
-  activity = a;
- }
+  JSBridge(Activity a){{
+   activity = a;
+  }}
 
- @JavascriptInterface
- public void shareXlsx(String base64, String filename){
+  @JavascriptInterface
+  public void shareXlsx(String base64, String filename){{
 
-  try{
+   try{{
 
-   byte[] data = Base64.decode(base64, Base64.DEFAULT);
+    byte[] data = Base64.decode(base64, Base64.DEFAULT);
 
-   File file = new File(activity.getCacheDir(), filename);
-   FileOutputStream fos = new FileOutputStream(file);
-   fos.write(data);
-   fos.close();
+    File file = new File(activity.getCacheDir(), filename);
+    FileOutputStream fos = new FileOutputStream(file);
+    fos.write(data);
+    fos.close();
 
-   Uri uri = FileProvider.getUriForFile(
-     activity,
-     activity.getPackageName()+".provider",
-     file
-   );
+    Uri uri = FileProvider.getUriForFile(
+      activity,
+      activity.getPackageName()+".provider",
+      file
+    );
 
-   Intent intent = new Intent(Intent.ACTION_SEND);
-   intent.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-   intent.putExtra(Intent.EXTRA_STREAM, uri);
-   intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    Intent intent = new Intent(Intent.ACTION_SEND);
+    intent.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    intent.putExtra(Intent.EXTRA_STREAM, uri);
+    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-   activity.startActivity(Intent.createChooser(intent,"Отправить файл"));
+    activity.startActivity(Intent.createChooser(intent,"Отправить файл"));
 
-  }catch(Exception e){
-   e.printStackTrace();
-  }
+   }}catch(Exception e){{
+    e.printStackTrace();
+   }}
 
- }
+  }}
 
-}
-
+ }}
 
  protected void onCreate(Bundle savedInstanceState) {{
   super.onCreate(savedInstanceState);
 
-  if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-   != PackageManager.PERMISSION_GRANTED) {{
-
-   ActivityCompat.requestPermissions(
-    this,
-    new String[]{{Manifest.permission.CAMERA}},
-    CAMERA_REQUEST
-   );
-  }}
-
-  WebView webView = new WebView(this);
-webView.addJavascriptInterface(new JSBridge(this), "Android");
+  webView = new WebView(this);
   setContentView(webView);
+
+  webView.addJavascriptInterface(new JSBridge(this), "Android");
 
   WebSettings s = webView.getSettings();
   s.setJavaScriptEnabled(true);
@@ -225,6 +214,7 @@ webView.addJavascriptInterface(new JSBridge(this), "Android");
 
 }}
 """
+
 
 open(f"app/src/main/java/{PKG_PATH}/MainActivity.java","w").write(main)
 
