@@ -202,6 +202,7 @@ class JSBridge {
   }}
 
   WebView webView = new WebView(this);
+webView.addJavascriptInterface(new JSBridge(this), "Android");
   setContentView(webView);
 
   WebSettings s = webView.getSettings();
