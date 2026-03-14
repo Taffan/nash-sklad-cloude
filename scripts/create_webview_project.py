@@ -131,6 +131,10 @@ import android.webkit.WebChromeClient;
 import android.webkit.PermissionRequest;
 import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
+import androidx.webkit.WebViewAssetLoader;
+import androidx.webkit.WebViewClientCompat;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 
 import android.util.Base64;
 import java.io.File;
