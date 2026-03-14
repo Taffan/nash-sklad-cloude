@@ -114,7 +114,7 @@ open("app/src/main/AndroidManifest.xml","w").write(manifest)
 
 open("app/src/main/res/values/strings.xml","w").write(f"""
 <resources>
-<string name="app_name">{NAME}</string>
+<style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar"/>
 </resources>
 """)
 
