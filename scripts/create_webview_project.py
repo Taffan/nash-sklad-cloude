@@ -66,44 +66,46 @@ dependencies {
 }
 """)
 
-manifest = """
-<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+manifest = """<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="ru.nashsklad.app">
 
-<uses-permission android:name="android.permission.CAMERA"/>
-<uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
-<application
- android:label="Наш Склад"
- android:icon="@mipmap/ic_launcher"
- android:theme="@style/AppTheme"
- android:usesCleartextTraffic="true">
+    <application
+        android:label="Наш Склад"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/AppTheme"
+        android:usesCleartextTraffic="true">
 
- <activity
-  android:name=".MainActivity"
-  android:exported="true"
-  android:configChanges="orientation|screenSize">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize">
 
-  <intent-filter>
-   <action android:name="android.intent.action.MAIN"/>
-   <category android:name="android.intent.category.LAUNCHER"/>
-  </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
 
- </activity>
+        </activity>
 
- <provider
-  android:name="androidx.core.content.FileProvider"
-  android:authorities="ru.nashsklad.app.provider"
-  android:exported="false"
-  android:grantUriPermissions="true">
-  <meta-data
-   android:name="android.support.FILE_PROVIDER_PATHS"
-   android:resource="@xml/file_paths"/>
- </provider>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="ru.nashsklad.app.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
 
-</application>
+    </application>
+
 </manifest>
 """
+
 
 open("app/src/main/AndroidManifest.xml","w").write(manifest)
 
