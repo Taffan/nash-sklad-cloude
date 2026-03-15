@@ -1647,6 +1647,7 @@ function startOCR() {
   const counter = document.getElementById('ocr-counter');
   if (counter) counter.textContent = '0 / 15';
   setTimeout(() => document.getElementById('ocr-manual-input').focus(), 150);
+  startMLKitOCR();
 }
 
 function ocrInputFilter(input) {
@@ -1662,13 +1663,48 @@ function ocrInputFilter(input) {
   input.style.borderColor = valid ? '#4caf50' : 'var(--accent)';
 }
 
-function startMLKitOCR() {
-  if (window.Android && typeof Android.startTextOCR === 'function') {
-    document.getElementById('ocr-status').textContent = '⏳ Наведите камеру на номер заявки...';
-    document.getElementById('ocr-scan-btn').disabled = true;
-    Android.startTextOCR();
+async function startMLKitOCR() {
+  const video = document.querySelector("video");
+  if (!video) {
+    document.getElementById('ocr-status').textContent = 'Камера не активна';
+    return;
+  }
+
+  document.getElementById('ocr-status').textContent = '⏳ Сканирование номера заявки...';
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0);
+
+  const { createWorker } = Tesseract;
+  const worker = await createWorker({ logger: m => console.log(m) });
+
+  await worker.loadLanguage('eng');
+  await worker.initialize('eng');
+
+  const { data } = await worker.recognize(canvas);
+
+  await worker.terminate();
+
+  let text = data.text.toUpperCase().replace(/O/g,'0').replace(/I/g,'1').replace(/[^A-Z0-9]/g,'');
+
+  const match = text.match(/(INC|REQ)[0-9]{3,}/);
+  if(match){
+    const num = match[0];
+    document.getElementById('ocr-manual-input').value = num;
+    ocrInputFilter(document.getElementById('ocr-manual-input'));
+    document.getElementById('ocr-status').textContent = '✓ Найдено: ' + num;
+    document.getElementById('ocr-status').style.color = '#4caf50';
+    toast('✓ ' + num, 'ok');
+    setTimeout(() => {
+      document.getElementById('f-req').value = num;
+      closeOCR();
+    }, 700);
   } else {
-    document.getElementById('ocr-status').textContent = 'ML Kit недоступен — введите вручную';
+    document.getElementById('ocr-status').textContent = '✕ Номер заявки не найден';
+    document.getElementById('ocr-status').style.color = 'var(--danger)';
   }
 }
 
