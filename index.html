@@ -711,12 +711,17 @@ body {
           </div>
           <!-- Расход: Номер заявки -->
           <div class="fr" id="row-req" style="display:none;">
-            <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+            <div class="fi">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+                <line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+            </div>
             <div class="fc">
               <div class="fl">Номер заявки</div>
               <div style="display:flex;gap:6px;align-items:center;">
                 <input class="finp" id="f-req" type="text" placeholder="Например: INC/REQ-001" style="flex:1;margin:0;">
-                <button type="button" id="ocr-btn" onclick="startOCR()" title="Распознать с камеры" style="flex-shrink:0;width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                <button type="button" id="ocr-btn" title="Распознать с камеры" style="flex-shrink:0;width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
                     <circle cx="12" cy="13" r="4"/>
@@ -725,42 +730,27 @@ body {
               </div>
             </div>
           </div>
-          <!-- OCR модальное окно -->
-          <style>
-            /* OCR-модалка */
-            #ocr-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; flex-direction:column; z-index:999; }
-            #ocr-camera-wrapper { position:relative; width:90vw; max-width:400px; aspect-ratio:4/3; border:2px solid #ff9800; border-radius:12px; overflow:hidden; margin-bottom:10px; }
-            #camera-view { width:100%; height:100%; object-fit:cover; }
-            #camera-overlay { position:absolute; top:10%; left:10%; width:80%; height:30%; border:2px dashed #ffeb3b; pointer-events:none; }
-            #ocr-status { color:#fff; margin-bottom:6px; text-align:center; min-height:18px; }
-            #ocr-manual-input { width:100%; padding:12px; font-size:18px; border-radius:8px; border:2px solid #ff9800; text-align:center; margin-bottom:6px; }
-            #ocr-buttons { display:flex; gap:10px; }
-            #ocr-buttons button { flex:1; padding:10px; border:none; border-radius:8px; font-size:14px; cursor:pointer; }
-          </style>
 
-          <div id="ocr-modal">
-            <div id="ocr-status">Наведите камеру на номер заявки</div>
-            <div id="ocr-camera-wrapper">
-              <video id="camera-view" autoplay playsinline muted></video>
-              <div id="camera-overlay"></div>
+          <!-- Модалка для камеры -->
+          <div id="ocr-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); justify-content:center; align-items:center; flex-direction:column; z-index:999;">
+            <div id="ocr-status" style="color:#fff; margin-bottom:6px; text-align:center;">Наведите камеру на номер заявки</div>
+            <div id="ocr-camera-wrapper" style="position:relative; width:90vw; max-width:400px; aspect-ratio:4/3; border:2px solid #ff9800; border-radius:12px; overflow:hidden; margin-bottom:10px;">
+              <video id="camera-view" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover;"></video>
+              <div id="camera-overlay" style="position:absolute; top:10%; left:10%; width:80%; height:30%; border:2px dashed #ffeb3b; pointer-events:none;"></div>
             </div>
-            <input id="ocr-manual-input" type="text" placeholder="INC/REQ-000000000000">
-            <div id="ocr-buttons">
-              <button id="ocr-scan-btn">📷 Сканировать</button>
-              <button onclick="applyManual()">✓ Применить</button>
+            <input id="ocr-manual-input" type="text" placeholder="INC/REQ-000000000000" style="width:100%; padding:12px; font-size:18px; border-radius:8px; border:2px solid #ff9800; text-align:center; margin-bottom:6px;">
+            <div id="ocr-buttons" style="display:flex; gap:10px;">
+              <button id="ocr-scan-btn" style="flex:1; padding:10px; border:none; border-radius:8px; font-size:14px; cursor:pointer;">📷 Сканировать</button>
+              <button onclick="applyManual()" style="flex:1; padding:10px; border:none; border-radius:8px; font-size:14px; cursor:pointer;">✓ Применить</button>
             </div>
-            <button onclick="closeOCR()">Отмена</button>
-          </div>
-
-          <!-- Поле ввода с кнопкой запуска OCR -->
-          <div style="display:flex; gap:6px; align-items:center;">
-            <input class="finp" id="f-req" type="text" placeholder="Например: INC/REQ-001" style="flex:1;">
-            <button type="button" onclick="openOCR()" style="width:36px; height:36px; border-radius:8px; background:#ff9800; color:#fff;">📷</button>
+            <button onclick="closeOCR()" style="padding:10px 32px; border-radius:10px; border:none; background:transparent; color:rgba(255,255,255,0.35); font-size:13px; cursor:pointer;">Отмена</button>
           </div>
 
           <script src="tesseract.min.js"></script>
           <script>
           let cameraStream;
+
+          document.getElementById('ocr-btn').addEventListener('click', openOCR);
 
           function openOCR() {
             document.getElementById('ocr-modal').style.display = 'flex';
@@ -782,7 +772,7 @@ body {
 
           function closeOCR() {
             document.getElementById('ocr-modal').style.display = 'none';
-            if (cameraStream) {
+            if(cameraStream){
               cameraStream.getTracks().forEach(track => track.stop());
               cameraStream = null;
             }
@@ -797,30 +787,37 @@ body {
           document.getElementById('ocr-scan-btn').addEventListener('click', async () => {
             const video = document.getElementById('camera-view');
             if(!video) return;
+
             const canvas = document.createElement('canvas');
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video,0,0);
+
             document.getElementById('ocr-status').textContent = 'Распознавание...';
+
             const worker = await Tesseract.createWorker({ logger: m => console.log(m) });
             await worker.loadLanguage('eng');
             await worker.initialize('eng');
+
             const { data } = await worker.recognize(canvas);
             await worker.terminate();
-            let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
-            const match = text.match(/(INC|REQ)[0-9]{3,}/);
+
+            let text = data.text.toUpperCase().replace(/O/g,'0').replace(/I/g,'1').replace(/[^A-Z0-9]/g,'');
+            const match = text.match(/(INC|REQ)[0-9]{12}/);
+
             if(match) {
-              document.getElementById('f-req').value = match[0];
-              document.getElementById('ocr-status').textContent = '✓ Найдено: ' + match[0];
-              setTimeout(closeOCR, 700);
+              const num = match[0];
+              document.getElementById('f-req').value = num;
+              document.getElementById('ocr-manual-input').value = num;
+              document.getElementById('ocr-status').textContent = '✓ Найдено: ' + num;
+              document.getElementById('ocr-status').style.color = '#4caf50';
+              setTimeout(closeOCR,700);
             } else {
               document.getElementById('ocr-status').textContent = '⚠ Номер заявки не найден';
-            }
+              document.getElementById('ocr-status').style.color = 'var(--danger)';
+           }
           });
           </script>
-            <!-- Статус ML Kit -->
-            
-        </div>
 
         <button class="btn-add" onclick="addRecord()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
