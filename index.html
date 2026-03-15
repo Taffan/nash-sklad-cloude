@@ -1586,7 +1586,8 @@ async function sendToNextcloud(url, user, pass, tblId) {
 }
 
 function sendByEmail() {
-  if (!records.length) { toast('⚠ Нет данных', 'err'); return; }
+  if (!records.length) { toast('⚠ Нет данных','err'); return; }
+
   const inc = records.filter(r => r.section === 'income');
   const exp = records.filter(r => r.section === 'expense');
   const lines = [];
@@ -1596,9 +1597,7 @@ function sendByEmail() {
     lines.push('=== ПОСТУПЛЕНИЕ ===');
     lines.push('КЕ | Модель | Кол-во | Состояние | ФИО | Откуда');
     inc.forEach(r => lines.push(
-      [r.barcode, r.model||'', r.qty,
-       r.status==='repair'?'В ремонт':'В резерв',
-       r.fio||'', r.from||''].join(' | ')
+      [r.barcode,r.model||'',r.qty,r.status==='repair'?'В ремонт':'В резерв',r.fio||'',r.from||''].join(' | ')
     ));
   }
   if (exp.length) {
@@ -1606,31 +1605,28 @@ function sendByEmail() {
     lines.push('=== РАСХОД ===');
     lines.push('КЕ | Кол-во | ФИО | Куда | Дата | Номер заявки');
     exp.forEach(r => lines.push(
-      [r.barcode, r.qty, r.fio||'',
-       r.to||'', fmtD(r.date), r.req||''].join(' | ')
+      [r.barcode,r.qty,r.fio||'',r.to||'',fmtD(r.date),r.req||''].join(' | ')
     ));
   }
 
-  const subject = encodeURIComponent(`Наш Склад — отчёт от ${date}`);
-  const body = encodeURIComponent(lines.join('\n'));
-  const subjectDecoded = decodeURIComponent(subject);
-  const bodyDecoded = decodeURIComponent(body);
+  const subject = `Наш Склад — отчёт от ${date}`;
+  const body = lines.join('\n');
+
+  // На Android или WebView
   if (window.Android && Android.sendEmail) {
-    // Нативный Android — открывает почтовый клиент через Intent
-    Android.sendEmail(subjectDecoded, bodyDecoded);
+    Android.sendEmail(subject, body);
   } else {
-    try {
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-    } catch(e) {
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(bodyDecoded).then(() => toast('✓ Скопировано в буфер', 'ok'));
-      } else {
-        toast('⚠ Откройте почту вручную', 'err');
-      }
+    // fallback: копировать в буфер и показать toast
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(body).then(() => {
+        toast('✓ Текст отчёта скопирован, вставьте в почту', 'ok');
+      });
+    } else {
+      alert(body);
     }
   }
 }
-
+  
 // ── WebView touch fix ──────────────────────────────
 (function() {
   let lastTouch = 0;
