@@ -161,8 +161,8 @@ body {
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  height: 64px;             /* высота таббара */
-  z-index: 100;             /* поверх контента */
+  height: 60px;             /* высота таббара */
+  z-index: 50;             /* поверх контента */
 }
 
 .tab-divider {
@@ -1711,7 +1711,7 @@ async function startCamera() {
     await video.play();
     document.getElementById('ocr-status').textContent = 'Наведите номер заявки в рамку и нажмите "Сканировать"';
   } catch(e) {
-    alert("Камера не доступна: " + e.message);
+    toast("✕ Камера: " + e.message, "err");
   }
 }
 
@@ -1746,8 +1746,11 @@ document.getElementById('ocr-scan-btn').addEventListener('click', async () => {
   const { data } = await worker.recognize(canvas);
   await worker.terminate();
 
-  let text = data.text.toUpperCase().replace(/O/g,'0').replace(/I/g,'1').replace(/[^A-Z0-9]/g,'');
-  const match = text.match(/(INC|REQ)[0-9]{12}/);
+  let text = data.text.toUpperCase()
+  .replace(/O/g,'0')
+  .replace(/I/g,'1')
+  .replace(/[^A-Z0-9]/g,'');
+  const match = text.match(/\b(INC|REQ)[0-9]{12}\b/i);
 
   if(match) {
     const num = match[0];
