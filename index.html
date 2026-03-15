@@ -1430,19 +1430,8 @@ function exportCsv() {
   toast('✓ CSV экспорт готов', 'ok');
 }
 
-async function exportXlsx() {
-
-  if (!records.length) {
-    toast('⚠ Нет данных','err');
-    return;
-  }
-
-  if (typeof XLSX === 'undefined') {
-    toast('⚠ XLSX не загружен, экспорт CSV','err');
-    exportCsv();
-    return;
-  }
-
+function exportXlsx() {
+  if (!records.length) { toast('⚠ Нет данных','err'); return; }
   const wb = XLSX.utils.book_new();
   const dateStr = new Date().toLocaleDateString('ru-RU');
 
@@ -1450,71 +1439,63 @@ async function exportXlsx() {
   const exp = records.filter(r => r.section === 'expense');
 
   if (inc.length) {
-
     const rows = inc.map(r => ({
-      'КЕ': r.barcode || '',
-      'Модель': r.model || '',
-      'Количество': r.qty || 1,
-      'Состояние': r.status === 'repair' ? 'В ремонт' : 'В резерв',
-      'ФИО': r.fio || '',
-      'Откуда': r.from || '',
-      'Время': r.time || ''
+      'КЕ': r.barcode||'',
+      'Модель': r.model||'',
+      'Количество': r.qty||1,
+      'Состояние': r.status==='repair'?'В ремонт':'В резерв',
+      'ФИО': r.fio||'',
+      'Откуда': r.from||'',
+      'Время': r.time||''
     }));
-
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, 'Поступление');
   }
 
   if (exp.length) {
-
     const rows = exp.map(r => ({
-      'КЕ': r.barcode || '',
-      'Количество': r.qty || 1,
-      'ФИО': r.fio || '',
-      'Куда': r.to || '',
+      'КЕ': r.barcode||'',
+      'Количество': r.qty||1,
+      'ФИО': r.fio||'',
+      'Куда': r.to||'',
       'Дата': fmtD(r.date),
-      'Номер заявки': r.req || '',
-      'Время': r.time || ''
+      'Номер заявки': r.req||'',
+      'Время': r.time||''
     }));
-
     const ws = XLSX.utils.json_to_sheet(rows);
     XLSX.utils.book_append_sheet(wb, ws, 'Расход');
   }
 
+  // Сводный лист
+  const allRows = records.map(r => ({
+    'Тип': r.section==='income'?'Поступление':'Расход',
+    'КЕ': r.barcode||'',
+    'Модель': r.model||'',
+    'Кол-во': r.qty||1,
+    'Состояние': r.status==='repair'?'В ремонт':'В резерв',
+    'ФИО': r.fio||'',
+    'Откуда': r.from||'',
+    'Куда': r.to||'',
+    'Дата': fmtD(r.date),
+    'Заявка': r.req||'',
+    'Время': r.time||''
+  }));
+  const wsAll = XLSX.utils.json_to_sheet(allRows);
+  XLSX.utils.book_append_sheet(wb, wsAll, 'Все записи');
+
+  // Создание файла и скачивание через blob (работает на file://)
   const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-
-  const blob = new Blob([wbout], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-  });
-
+  const blob = new Blob([wbout], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const fileName = `НашСклад_${dateStr.replace(/\./g,'-')}.xlsx`;
-  const file = new File([blob], fileName);
-
-  // 📤 Android share
-  if (navigator.canShare && navigator.canShare({files:[file]})) {
-    try{
-      await navigator.share({
-        files:[file],
-        title:'Отчёт склада'
-      });
-      toast('✓ Excel отправлен','ok');
-      return;
-    }catch(e){}
-  }
-
-  // 💾 fallback скачать
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;
-
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-
   URL.revokeObjectURL(url);
-
-  toast('✓ Excel готов','ok');
+  toast('✓ Excel готов', 'ok');
 }
 
   
