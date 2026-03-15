@@ -1919,22 +1919,6 @@ async function scanRequest(){
 
 }
 
-async function initCamera() {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
-    const video = document.getElementById("camera-view");
-    video.srcObject = stream;
-    video.play();
-  } catch (err) {
-    alert("⚠ Камера не доступна: " + err.message);
-  }
-}
-
-// Запускаем при загрузке страницы
-document.addEventListener('DOMContentLoaded', () => {
-  initCamera();
-});
-
 </script>
 
 </body>
