@@ -1664,7 +1664,7 @@ function ocrInputFilter(input) {
 }
 
 async function startMLKitOCR() {
-  const video = document.querySelector("video");
+  const video = document.getElementById("video");
   if (!video) {
     document.getElementById('ocr-status').textContent = 'Камера не активна';
     return;
