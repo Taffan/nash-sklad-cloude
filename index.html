@@ -752,84 +752,6 @@ body {
 
       </div>
     </div>
- <div id="ocr-modal">
-            <div id="ocr-status">Наведите камеру на номер заявки</div>
-            <div id="ocr-camera-wrapper">
-              <video id="camera-view" autoplay playsinline muted></video>
-              <div id="camera-overlay"></div>
-            </div>
-            <input id="ocr-manual-input" type="text" placeholder="INC/REQ-000000000000">
-            <div id="ocr-buttons">
-              <button id="ocr-scan-btn">📷 Сканировать</button>
-              <button onclick="applyManual()">✓ Применить</button>
-            </div>
-            <button onclick="closeOCR()">Отмена</button>
-          </div>
-
-          <script src="tesseract.min.js"></script>
-          <script>
-          let cameraStream;
-
-          function openOCR() {
-            document.getElementById('ocr-modal').style.display = 'flex';
-            document.getElementById('ocr-status').textContent = 'Запуск камеры...';
-            startCamera();
-          }
-
-          async function startCamera() {
-            try {
-              cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio:false });
-              const video = document.getElementById('camera-view');
-              video.srcObject = cameraStream;
-              await video.play();
-              document.getElementById('ocr-status').textContent = 'Наведите номер заявки в рамку и нажмите "Сканировать"';
-            } catch(e) {
-              alert("Камера не доступна: " + e.message);
-            }
-          }
-
-          function closeOCR() {
-            document.getElementById('ocr-modal').style.display = 'none';
-            if (cameraStream) {
-              cameraStream.getTracks().forEach(track => track.stop());
-              cameraStream = null;
-            }
-          }
-
-          function applyManual() {
-            const val = document.getElementById('ocr-manual-input').value.trim();
-            if(val) document.getElementById('f-req').value = val;
-            closeOCR();
-          }
-
-          document.getElementById('ocr-scan-btn').addEventListener('click', async () => {
-            const video = document.getElementById('camera-view');
-            if(!video) return;
-            const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video,0,0);
-            document.getElementById('ocr-status').textContent = 'Распознавание...';
-  
-            const worker = await Tesseract.createWorker({ logger: m => console.log(m) });
-            await worker.loadLanguage('eng');
-            await worker.initialize('eng');
-            const { data } = await worker.recognize(canvas);
-            await worker.terminate();
-
-            let text = data.text.toUpperCase().replace(/O/g,'0').replace(/I/g,'1').replace(/[^A-Z0-9]/g,'');
-            const match = text.match(/(INC|REQ)[0-9]{3,}/);
-
-            if(match) {
-              const num = match[0];
-              document.getElementById('f-req').value = num;
-              document.getElementById('ocr-status').textContent = '✓ Найдено: ' + num;
-              setTimeout(closeOCR, 700);
-            } else {
-             document.getElementById('ocr-status').textContent = '⚠ Номер заявки не найден';
-            }
-          });
-          </script>
   
     <!-- RECORDS TAB -->
     <div class="tab-panel" id="tab-rec">
@@ -1087,6 +1009,93 @@ body {
   </div>
 </div>
 
+<!-- ===== OCR МОДАЛКА ВНИЗ ===== -->
+<div id="ocr-modal">
+  <div id="ocr-status">Наведите камеру на номер заявки</div>
+  <div id="ocr-camera-wrapper">
+    <video id="camera-view" autoplay playsinline muted></video>
+    <div id="camera-overlay"></div>
+  </div>
+  <input id="ocr-manual-input" type="text" placeholder="INC/REQ-000000000000">
+  <div id="ocr-buttons">
+    <button id="ocr-scan-btn">📷 Сканировать</button>
+    <button onclick="applyManual()">✓ Применить</button>
+  </div>
+  <button onclick="closeOCR()">Отмена</button>
+</div>
+
+<script src="tesseract.min.js"></script>
+<script>
+let cameraStream;
+
+document.getElementById('ocr-btn').addEventListener('click', openOCR);
+
+function openOCR() {
+  document.getElementById('ocr-modal').style.display = 'flex';
+  document.getElementById('ocr-status').textContent = 'Запуск камеры...';
+  startCamera();
+}
+
+async function startCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio:false });
+    const video = document.getElementById('camera-view');
+    video.srcObject = cameraStream;
+    await video.play();
+    document.getElementById('ocr-status').textContent = 'Наведите номер заявки в рамку и нажмите "Сканировать"';
+  } catch(e) {
+    alert("Камера не доступна: " + e.message);
+  }
+}
+
+function closeOCR() {
+  document.getElementById('ocr-modal').style.display = 'none';
+  if(cameraStream){
+    cameraStream.getTracks().forEach(track => track.stop());
+    cameraStream = null;
+  }
+}
+
+function applyManual() {
+  const val = document.getElementById('ocr-manual-input').value.trim();
+  if(val) document.getElementById('f-req').value = val;
+  closeOCR();
+}
+
+document.getElementById('ocr-scan-btn').addEventListener('click', async () => {
+  const video = document.getElementById('camera-view');
+  if(!video) return;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0);
+
+  document.getElementById('ocr-status').textContent = 'Распознавание...';
+
+  const worker = await Tesseract.createWorker({ logger: m => console.log(m) });
+  await worker.loadLanguage('eng');
+  await worker.initialize('eng');
+  const { data } = await worker.recognize(canvas);
+  await worker.terminate();
+
+  let text = data.text.toUpperCase().replace(/O/g,'0').replace(/I/g,'1').replace(/[^A-Z0-9]/g,'');
+  const match = text.match(/(INC|REQ)[0-9]{12}/);
+
+  if(match) {
+    const num = match[0];
+    document.getElementById('f-req').value = num;
+    document.getElementById('ocr-manual-input').value = num;
+    document.getElementById('ocr-status').textContent = '✓ Найдено: ' + num;
+    document.getElementById('ocr-status').style.color = '#4caf50';
+    setTimeout(closeOCR, 700);
+  } else {
+    document.getElementById('ocr-status').textContent = '⚠ Номер заявки не найден';
+    document.getElementById('ocr-status').style.color = 'var(--danger)';
+  }
+});
+</script>
+  
 <script>
 
 // ── State ──────────────────────────────────────────
