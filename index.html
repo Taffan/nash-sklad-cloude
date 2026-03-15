@@ -1724,7 +1724,8 @@ window.addEventListener("load", () => {
 <script>
 let cameraStream;
 
-document.getElementById('ocr-btn').addEventListener('click', openOCR);
+const ocrBtn = document.getElementById('ocr-btn');
+if (ocrBtn) ocrBtn.addEventListener('click', openOCR);
 
 function openOCR() {
   document.getElementById('ocr-modal').style.display = 'flex';
