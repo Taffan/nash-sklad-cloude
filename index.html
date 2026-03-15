@@ -14,7 +14,7 @@
 <title>Наш Склад</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
-
+<script src="tesseract.min.js"></script>
 
 <style>
 
@@ -1698,7 +1698,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   <button onclick="closeOCR()">Отмена</button>
 </div>
 
-<script src="tesseract.min.js"></script>
+
 <script>
 let cameraStream;
 
@@ -1747,7 +1747,12 @@ document.getElementById('ocr-scan-btn').addEventListener('click', async () => {
 
   document.getElementById('ocr-status').textContent = 'Распознавание...';
 
-  const worker = await Tesseract.createWorker({ logger: m => console.log(m) });
+  const worker = await Tesseract.createWorker({
+  logger: m => console.log(m),
+  workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/worker.min.js',
+  langPath: 'https://tessdata.projectnaptha.com/4.0.0',
+  corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@4/tesseract-core.wasm.js'
+});
   await worker.loadLanguage('eng');
   await worker.initialize('eng');
   const { data } = await worker.recognize(canvas);
