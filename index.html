@@ -153,13 +153,16 @@ body {
 
 /* ── Tabbar ── */
 #tabbar {
+  position: fixed;          /* фиксируем внизу */
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  min-height: 56px;
-  flex-shrink: 0;
-  z-index: 50;
+  height: 64px;             /* высота таббара */
+  z-index: 100;             /* поверх контента */
 }
 
 .tab-divider {
@@ -743,6 +746,8 @@ body {
             #ocr-buttons button { flex:1; padding:10px; border:none; border-radius:8px; font-size:14px; cursor:pointer; }
           </style>
           
+          </div> <!-- конец формы (row-date, row-req и прочих полей) -->
+        
         <button class="btn-add" onclick="addRecord()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
           Добавить запись
