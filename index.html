@@ -1270,10 +1270,22 @@ function beep() {
 function onScan(code) {
   if (cooldown||!code) return;
   cooldown=true; setTimeout(()=>cooldown=false,2000);
+  
+  // Проверка для КЕ: только цифры, ровно 13 символов
+  if (!/^\d{13}$/.test(code)) {
+    toast('⚠ Неверный КЕ: должно быть 13 цифр', 'err');
+    return;
+  }
+
   if (vibrationEnabled && navigator.vibrate) navigator.vibrate(60);
   if (soundEnabled) beep();
-  const f=document.getElementById('flash'); f.classList.add('on'); setTimeout(()=>f.classList.remove('on'),120);
-  setBC(code); toast('✓ '+code,'ok');
+
+  const f = document.getElementById('flash');
+  f.classList.add('on');
+  setTimeout(() => f.classList.remove('on'), 120);
+
+  setBC(code);
+  toast('✓ ' + code, 'ok');
 }
 
 function applyManualLive() {
