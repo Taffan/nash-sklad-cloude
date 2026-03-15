@@ -751,7 +751,7 @@ body {
               <div id="ocr-counter" style="text-align:right;color:rgba(255,255,255,0.45);font-size:12px;margin-top:4px;">0 / 15</div>
             </div>
             <div style="display:flex;gap:10px;width:100%;max-width:360px;">
-              <button id="ocr-scan-btn" onclick="startMLKitOCR()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Сканировать</button>
+              <button id="ocr-scan-btn" onclick="startOCR()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Сканировать</button>
               <button onclick="applyOcrManual()" style="flex:1;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">✓ Применить</button>
             </div>
             <button onclick="closeOCR()" style="padding:10px 32px;border-radius:10px;border:none;background:transparent;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;">Отмена</button>
@@ -1900,7 +1900,23 @@ async function scanRequest(){
   await recognizeRequest(canvas);
 
 }
-  
+
+async function initCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    const video = document.getElementById("camera-view");
+    video.srcObject = stream;
+    video.play();
+  } catch (err) {
+    alert("⚠ Камера не доступна: " + err.message);
+  }
+}
+
+// Запускаем при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+  initCamera();
+});
+
 </script>
 
 </body>
