@@ -819,21 +819,7 @@ body {
           });
           </script>
             <!-- Статус ML Kit -->
-            <div id="ocr-status" style="color:rgba(255,255,255,0.8);font-size:13px;text-align:center;min-height:18px;"></div>
-            <!-- Поле ввода -->
-            <div style="width:100%;max-width:360px;">
-              <input id="ocr-manual-input" type="text" placeholder="INC000000000000"
-                style="width:100%;padding:14px;border-radius:12px;border:2px solid var(--accent);font-size:20px;background:#fff;color:#111;box-sizing:border-box;letter-spacing:2px;text-align:center;font-family:monospace;"
-                oninput="ocrInputFilter(this)"
-                onkeydown="if(event.key==='Enter')applyOcrManual()">
-              <div id="ocr-counter" style="text-align:right;color:rgba(255,255,255,0.45);font-size:12px;margin-top:4px;">0 / 15</div>
-            </div>
-            <div style="display:flex;gap:10px;width:100%;max-width:360px;">
-              <button id="ocr-scan-btn" onclick="startOCR()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Сканировать</button>
-              <button onclick="applyOcrManual()" style="flex:1;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">✓ Применить</button>
-            </div>
-            <button onclick="closeOCR()" style="padding:10px 32px;border-radius:10px;border:none;background:transparent;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;">Отмена</button>
-          </div>
+            
         </div>
 
         <button class="btn-add" onclick="addRecord()">
