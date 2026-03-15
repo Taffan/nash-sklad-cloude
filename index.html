@@ -1487,7 +1487,7 @@ function exportXlsx() {
   const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
   const blob = new Blob([wbout], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
   const fileName = `НашСклад_${dateStr.replace(/\./g,'-')}.xlsx`;
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url;
   a.download = fileName;
