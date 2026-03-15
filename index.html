@@ -117,8 +117,10 @@ body {
 /* ── Content area ── */
 #content {
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
 /* ── Tab panels ── */
@@ -1428,16 +1430,27 @@ function exportCsv() {
   toast('✓ CSV экспорт готов', 'ok');
 }
 
-function exportXlsx() {
-  if (!records.length) { toast('⚠ Нет данных','err'); return; }
+async function exportXlsx() {
+
+  if (!records.length) {
+    toast('⚠ Нет данных','err');
+    return;
+  }
+
+  if (typeof XLSX === 'undefined') {
+    toast('⚠ XLSX не загружен, экспорт CSV','err');
+    exportCsv();
+    return;
+  }
+
   const wb = XLSX.utils.book_new();
   const dateStr = new Date().toLocaleDateString('ru-RU');
-  const timeStr = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
 
   const inc = records.filter(r => r.section === 'income');
   const exp = records.filter(r => r.section === 'expense');
 
   if (inc.length) {
+
     const rows = inc.map(r => ({
       'КЕ': r.barcode || '',
       'Модель': r.model || '',
@@ -1447,13 +1460,13 @@ function exportXlsx() {
       'Откуда': r.from || '',
       'Время': r.time || ''
     }));
+
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{wch:20},{wch:25},{wch:12},{wch:12},{wch:24},{wch:22},{wch:8}];
-    ws['!freeze'] = {xSplit:0, ySplit:1};
     XLSX.utils.book_append_sheet(wb, ws, 'Поступление');
   }
 
   if (exp.length) {
+
     const rows = exp.map(r => ({
       'КЕ': r.barcode || '',
       'Количество': r.qty || 1,
@@ -1463,54 +1476,48 @@ function exportXlsx() {
       'Номер заявки': r.req || '',
       'Время': r.time || ''
     }));
+
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{wch:20},{wch:12},{wch:24},{wch:22},{wch:12},{wch:18},{wch:8}];
-    ws['!freeze'] = {xSplit:0, ySplit:1};
     XLSX.utils.book_append_sheet(wb, ws, 'Расход');
   }
 
-  // Сводный лист — все записи
-  const allRows = records.map(r => ({
-    'Тип': r.section === 'income' ? 'Поступление' : 'Расход',
-    'КЕ': r.barcode || '',
-    'Модель': r.model || '',
-    'Кол-во': r.qty || 1,
-    'Состояние': r.status === 'repair' ? 'В ремонт' : 'В резерв',
-    'ФИО': r.fio || '',
-    'Откуда': r.from || '',
-    'Куда': r.to || '',
-    'Дата': fmtD(r.date),
-    'Заявка': r.req || '',
-    'Время': r.time || ''
-  }));
-  const wsAll = XLSX.utils.json_to_sheet(allRows);
-  wsAll['!cols'] = [{wch:14},{wch:20},{wch:22},{wch:8},{wch:12},{wch:24},{wch:20},{wch:20},{wch:12},{wch:16},{wch:8}];
-  wsAll['!freeze'] = {xSplit:0, ySplit:1};
-  XLSX.utils.book_append_sheet(wb, wsAll, 'Все записи');
+  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
 
-  const fname = `НашСклад_${dateStr.replace(/\./g,'-')}.xlsx`;
-  try {
-    if (typeof XLSX === 'undefined') {
-      toast('⚠ XLSX не загружен, экспорт CSV', 'err');
-      exportCsv(); return;
-    }
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-    if (window.Android && typeof Android.saveXlsx === 'function') {
-      Android.saveXlsx(wbout, fname);
-    } else {
-      // Браузер fallback
-      const a = document.createElement('a');
-      a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + wbout;
-      a.download = fname;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      toast('✓ ' + fname, 'ok');
-    }
-  } catch(e) {
-    toast('⚠ ' + e.message, 'err');
-    exportCsv();
+  const blob = new Blob([wbout], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  });
+
+  const fileName = `НашСклад_${dateStr.replace(/\./g,'-')}.xlsx`;
+  const file = new File([blob], fileName);
+
+  // 📤 Android share
+  if (navigator.canShare && navigator.canShare({files:[file]})) {
+    try{
+      await navigator.share({
+        files:[file],
+        title:'Отчёт склада'
+      });
+      toast('✓ Excel отправлен','ok');
+      return;
+    }catch(e){}
   }
+
+  // 💾 fallback скачать
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  URL.revokeObjectURL(url);
+
+  toast('✓ Excel готов','ok');
 }
 
+  
 function openNcModal() {
   if (!records.length) { toast('⚠ Нет данных', 'err'); return; }
   document.getElementById('nc-modal').style.display = 'flex';
@@ -1632,7 +1639,7 @@ function sendByEmail() {
     Android.sendEmail(subjectDecoded, bodyDecoded);
   } else {
     try {
-      window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
     } catch(e) {
       if (navigator.clipboard) {
         navigator.clipboard.writeText(bodyDecoded).then(() => toast('✓ Скопировано в буфер', 'ok'));
