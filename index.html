@@ -1658,6 +1658,50 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('visibilitychange', () => { if (document.hidden && camActive) stopCam(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
+// ===== SETTINGS SWITCHES =====
+
+let vibrationEnabled = localStorage.getItem("vibration") !== "off";
+let soundEnabled = localStorage.getItem("sound") !== "off";
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle("dark");
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+}
+
+function toggleVibration() {
+  const el = document.getElementById("vibration-toggle");
+  vibrationEnabled = el.checked;
+  localStorage.setItem("vibration", vibrationEnabled ? "on" : "off");
+  toast(vibrationEnabled ? "✓ Вибрация включена" : "✕ Вибрация выключена");
+}
+
+function toggleSound() {
+  const el = document.getElementById("sound-toggle");
+  soundEnabled = el.checked;
+  localStorage.setItem("sound", soundEnabled ? "on" : "off");
+  toast(soundEnabled ? "✓ Звук включен" : "✕ Звук выключен");
+}
+// восстановление настроек
+window.addEventListener("load", () => {
+
+  const vib = localStorage.getItem("vibration");
+  const snd = localStorage.getItem("sound");
+  const theme = localStorage.getItem("theme");
+
+  if (vib === "off") {
+    document.getElementById("vibration-toggle").checked = false;
+  }
+
+  if (snd === "off") {
+    document.getElementById("sound-toggle").checked = false;
+  }
+
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark");
+    document.getElementById("theme-toggle").checked = true;
+  }
+
+});
 
 </script>
 
