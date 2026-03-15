@@ -1736,8 +1736,8 @@ document.getElementById('ocr-scan-btn').addEventListener('click', async () => {
   const { data } = await worker.recognize(canvas);
   await worker.terminate();
 
-  let text = data.text.toUpperCase(); // не удаляем дефисы/слэши
-const match = text.match(/\b(INC|REQ)[0-9]{12}\b/i);
+  let text = data.text.toUpperCase().replace(/O/g,'0').replace(/I/g,'1');
+const match = text.match(/\b(INC|REQ)\d{12}\b/i);
 
 if(match) {
   const num = match[0];
