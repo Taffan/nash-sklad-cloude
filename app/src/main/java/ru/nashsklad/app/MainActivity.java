@@ -103,6 +103,7 @@ public class MainActivity extends AppCompatActivity {  // ← AppCompatActivity
         // Загрузка локального HTML
         try {
             webView.loadUrl("file:///android_asset/index.html");
+            webView.setBackgroundColor(0xFF00FF00);  // ярко-зелёный фон
         } catch (Exception e) {
             Toast.makeText(this, "Ошибка загрузки страницы", Toast.LENGTH_LONG).show();
         }
