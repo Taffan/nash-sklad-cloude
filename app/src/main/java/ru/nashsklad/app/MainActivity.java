@@ -8,27 +8,28 @@ import android.webkit.PermissionRequest;
 import android.webkit.WebViewClient;
 import android.webkit.JavascriptInterface;
 
-import android.app.Activity;
-import android.util.Base64;
+import androidx.appcompat.app.AppCompatActivity;  // ← изменили здесь
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.widget.Toast;
 
+import android.util.Base64;
 import java.io.File;
 import java.io.FileOutputStream;
 
 import android.net.Uri;
 import android.content.Intent;
 import androidx.core.content.FileProvider;
-import android.widget.Toast;
 
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {  // ← AppCompatActivity
 
     private WebView webView;
 
-    // --- JS Bridge для shareXlsx ---
+    // --- JS Bridge для shareXlsx (и потенциально других методов) ---
     class JSBridge {
+        MainActivity activity;  // ← изменили тип на MainActivity
 
-        Activity activity;
-
-        JSBridge(Activity a) {
+        JSBridge(MainActivity a) {
             activity = a;
         }
 
@@ -55,6 +56,7 @@ public class MainActivity extends Activity {
                 activity.startActivity(Intent.createChooser(intent, "Отправить файл"));
             } catch (Exception e) {
                 e.printStackTrace();
+                Toast.makeText(activity, "Ошибка экспорта: " + e.getMessage(), Toast.LENGTH_LONG).show();
             }
         }
     }
@@ -63,28 +65,34 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // --- Runtime permission для камеры ---
+        // Runtime permission для камеры
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            if (checkSelfPermission(android.Manifest.permission.CAMERA)
-                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{android.Manifest.permission.CAMERA}, 1);
+            if (checkSelfPermission(Manifest.permission.CAMERA)
+                    != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, 1);
             }
         }
 
-        // --- Инициализация WebView ---
+        // Инициализация WebView
         webView = new WebView(this);
         setContentView(webView);
 
-        // JSBridge для shareXlsx
+        // JS Bridge
         webView.addJavascriptInterface(new JSBridge(this), "Android");
 
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
+        s.setDatabaseEnabled(true);
+        s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
+        s.setAllowFileAccessFromFileURLs(true);          // критично для Tesseract/WASM + ZXing
+        s.setAllowUniversalAccessFromFileURLs(true);     // критично для file:// + локальные ресурсы
+        s.setMediaPlaybackRequiresUserGesture(false);    // камера/видео без жеста
 
         webView.setWebViewClient(new WebViewClient());
 
-        // WebChromeClient для запроса разрешений камеры в WebView
+        // WebChromeClient для getUserMedia (камера)
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
@@ -92,18 +100,32 @@ public class MainActivity extends Activity {
             }
         });
 
-        // Загружаем локальный HTML
-        webView.loadUrl("file:///android_asset/index.html");
+        // Загрузка локального HTML
+        try {
+            webView.loadUrl("file:///android_asset/index.html");
+        } catch (Exception e) {
+            Toast.makeText(this, "Ошибка загрузки страницы", Toast.LENGTH_LONG).show();
+        }
     }
 
-    // --- Обработчик результата разрешения камеры ---
+    // Обработчик результата разрешения
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == 1) {
-            if (grantResults.length > 0 && grantResults[0] != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "Разрешение на камеру обязательно", Toast.LENGTH_LONG).show();
+            if (grantResults.length > 0 && grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Разрешение на камеру обязательно для сканирования", Toast.LENGTH_LONG).show();
             }
+        }
+    }
+
+    // Обработка кнопки "Назад" — возвращает в историю WebView
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
         }
     }
 }
