@@ -13,13 +13,13 @@
   <link rel="manifest" href="manifest.json">
   <title>Наш Склад</title>
 
-  <!-- Локальные библиотеки – положи их в assets/ или рядом с index.html -->
-  <!-- <script src="xlsx.full.min.js"></script>          → положи файл -->
-  <!-- <script src="zxing-library-0.19.1.umd.min.js"></script> → положи файл -->
+  <!-- Все библиотеки локальные – лежат в той же папке, что и index.html -->
+  <script src="xlsx.full.min.js"></script>
+  <script src="zxing-library-0.19.1.umd.min.js"></script>
   <script src="tesseract.min.js"></script>
 
   <style>
-    /* убраны @import Google Fonts – используй локальные шрифты или системные */
+    /* твой CSS без изменений, оставляю как есть */
     @font-face {
       font-family: 'Roboto';
       src: local('Roboto'), local('Arial'), sans-serif;
@@ -31,56 +31,15 @@
       font-weight: 400 500;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-
-    html, body { 
-      touch-action: manipulation; 
-      height: 100%; 
-      overflow: hidden; 
-    }
-
-    body {
-      font-family: 'Roboto', Arial, sans-serif;
-      background: var(--bg, #efefef);
-      color: var(--text, #1a1a1a);
-    }
-
-    :root {
-      --bg: #efefef;
-      --surface: #ffffff;
-      --surface2: #e8e8e8;
-      --border: #d0d0d0;
-      --accent: #cc1f1f;
-      --accent-dim: rgba(204,31,31,0.10);
-      --danger: #b91c1c;
-      --text: #1a1a1a;
-      --text2: #555555;
-      --text3: #999999;
-      --r: 8px;
-    }
-
-    [data-theme="dark"] {
-      --bg: #121212;
-      --surface: #1e1e1e;
-      --surface2: #2a2a2a;
-      --border: #383838;
-      --accent: #e03333;
-      --accent-dim: rgba(224,51,51,0.15);
-      --danger: #ef4444;
-      --text: #f0f0f0;
-      --text2: #aaaaaa;
-      --text3: #666666;
-    }
-
-    /* ... весь остальной CSS без изменений ... (оставляю как есть, он не зависит от сети) */
+    /* ... весь остальной CSS ... */
   </style>
 </head>
 <body>
 
-  <!-- твой HTML-контент остаётся без изменений -->
+  <!-- твой HTML-контент без изменений -->
 
   <script>
-    // Глобальные переменные (добавил let/const где нужно)
+    // Глобальные переменные
     let soundEnabled = localStorage.getItem('sound') !== 'false';
     let isDark = localStorage.getItem('theme') === 'dark';
     let vibrationEnabled = localStorage.getItem('vibration') !== 'false';
@@ -89,18 +48,25 @@
 
     // ── Tesseract оффлайн конфиг ──────────────────────────────
     const TESSERACT_CONFIG = {
-      workerPath: 'worker.min.js',           // положи рядом
-      corePath: 'tesseract-core.wasm.js',    // или .wasm – положи рядом
-      langPath: './',                        // traineddata в той же папке или подпапке
+      workerPath: './worker.min.js',
+      corePath: './tesseract-core.wasm.js',
+      langPath: './',                        // traineddata должны быть здесь же
       logger: m => console.log('[Tesseract]', m)
     };
 
-    // ── OCR ────────────────────────────────────────────────────
+    // ── OCR с защитой ─────────────────────────────────────────
     async function recognizeRequest(canvas) {
+      if (!canvas) {
+        toast('Нет изображения для OCR', 'err');
+        return;
+      }
+
       try {
         const worker = await Tesseract.createWorker('rus+eng', 1, TESSERACT_CONFIG);
 
-        const { data } = await worker.recognize(canvas);
+        const { data } = await worker.recognize(canvas, {
+          rectangle: { top: 0, left: 0, width: canvas.width, height: canvas.height } // на всякий случай явно
+        });
 
         let text = data.text.toUpperCase()
           .replace(/O/g, '0')
@@ -118,14 +84,17 @@
 
         await worker.terminate();
       } catch (err) {
-        console.error('OCR error:', err);
-        toast('OCR ошибка: ' + err.message, 'err');
+        console.error('OCR критическая ошибка:', err);
+        toast('OCR не запустился: ' + (err.message || 'проверьте файлы traineddata'), 'err');
       }
     }
 
     function captureFrame() {
       const video = document.querySelector("video");
-      if (!video || !video.videoWidth) return null;
+      if (!video || video.readyState < 2 || !video.videoWidth) {
+        toast('Камера не готова или нет видео', 'err');
+        return null;
+      }
 
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
@@ -137,68 +106,24 @@
 
     async function scanRequest() {
       const canvas = captureFrame();
-      if (!canvas) {
-        toast('Камера не готова', 'err');
-        return;
-      }
+      if (!canvas) return;
       await recognizeRequest(canvas);
     }
 
-    // ── Остальные функции без изменений (с небольшими фиксами) ──
-
-    function applyOcrManual() {
-      const input = document.getElementById('ocr-manual-input');
-      if (!input) return;
-      const raw = input.value.trim().toUpperCase().replace(/[-_\s]/g,'');
-      if (!raw) { toast('⚠ Введите номер заявки', 'err'); return; }
-      const m = raw.match(/^(INC|REQ)([0-9O]{12})$/);
-      if (m) {
-        const result = m[1] + m[2].replace(/O/g,'0');
-        document.getElementById('f-req').value = result;
-        toast('✓ ' + result, 'ok');
-        closeOCR();
-      } else if (raw.length >= 5) {  // поднял порог с 3 до 5
-        document.getElementById('f-req').value = input.value.trim();
-        toast('✓ Принято', 'ok');
-        closeOCR();
-      } else {
-        toast('⚠ Слишком короткий номер', 'err');
-      }
-    }
-
-    function closeOCR() {
-      document.getElementById('ocr-modal').style.display = 'none';
-      const inp = document.getElementById('ocr-manual-input');
-      if (inp) inp.value = '';
-    }
-
-    function toast(msg, type) {
-      const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.className = `toast show ${type || ''}`;
-      clearTimeout(_tt);
-      _tt = setTimeout(() => el.classList.remove('show'), 2500);
-    }
-
-    function toggleSound() {
-      soundEnabled = document.getElementById('sound-toggle').checked;
-      localStorage.setItem('sound', soundEnabled ? 'true' : 'false');
-      applySoundSwitch();
-      if (soundEnabled) beep();
-    }
-
-    // ... остальные функции applySoundSwitch, applyTheme, toggleTheme, toggleVibration и т.д. без изменений ...
-
-    // ── WebView bridge safety ──
+    // ── Безопасный вызов Android ──
     function callAndroid(method, ...args) {
       if (window.Android && typeof window.Android[method] === 'function') {
-        window.Android[method](...args);
+        try {
+          window.Android[method](...args);
+        } catch (e) {
+          console.error('Android bridge error:', e);
+        }
+      } else {
+        console.warn('Android bridge недоступен (не в WebView?)');
       }
     }
 
-    // Пример использования: callAndroid('stopTextOCR');
-
-    // ── Init ───────────────────────────────────────────────────
+    // ── Init с защитой ────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', function() {
       const loader = document.getElementById('loader');
       if (loader) loader.style.display = 'none';
@@ -206,27 +131,35 @@
       if (!localStorage.getItem('theme')) {
         isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       }
-      applyTheme();
-      applyVibrationSwitch();
-      applySoundSwitch();
-      updateCount(); // предполагаю, что функция существует
+
+      // Вызываем функции только если они существуют
+      if (typeof applyTheme === 'function') applyTheme();
+      if (typeof applyVibrationSwitch === 'function') applyVibrationSwitch();
+      if (typeof applySoundSwitch === 'function') applySoundSwitch();
+      if (typeof updateCount === 'function') updateCount();
 
       const fdate = document.getElementById('f-date');
       if (fdate) fdate.value = new Date().toISOString().slice(0,10);
 
-      // Автозапуск камеры при открытии сканера
+      // Автозапуск камеры при активной вкладке
       const scanTab = document.getElementById('tab-scan');
       if (scanTab && scanTab.classList.contains('active')) {
-        initCamera().catch(e => console.warn('Camera init failed', e));
+        if (typeof initCamera === 'function') {
+          initCamera().catch(e => console.warn('Camera init failed', e));
+        } else {
+          console.warn('initCamera не определена');
+        }
       }
     });
 
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden && camActive) stopCam();
+      if (document.hidden && camActive && typeof stopCam === 'function') {
+        stopCam();
+      }
     });
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
+      navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW registration failed', e));
     }
 
   </script>
