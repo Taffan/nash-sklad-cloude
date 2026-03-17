@@ -19,33 +19,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.6
 
-      # Этот шаг больше НЕ нужен — index.html уже в app/src/main/assets/
-      # - name: Prepare Android assets
-      #   run: |
-      #     mkdir -p app/src/main/assets
-      #     cp index.html app/src/main/assets/index.html
-
-      - name: Add app icons (если иконки всё ещё в корне репозитория)
-        run: |
-          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            mkdir -p app/src/main/res/mipmap-$d
-            cp icon-192.png app/src/main/res/mipmap-$d/ic_launcher.png 2>/dev/null || true
-          done
-
       - name: Build Release APK
-        run: |
-          # local.properties уже не нужен — setup-gradle сам настраивает SDK
-          # echo "sdk.dir=$ANDROID_HOME" > local.properties   ← удалить эту строку
-          ./gradlew assembleRelease --stacktrace --no-daemon
+        run: ./gradlew assembleRelease --stacktrace --no-daemon
 
-      - name: Show built APK files (для отладки)
-        run: |
-          find . -name "*.apk" || echo "APK не найден — проверьте build.gradle"
+      - name: Show built APK files
+        run: find . -name "*.apk" || echo "APK не найден"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
