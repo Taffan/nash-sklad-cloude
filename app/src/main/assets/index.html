@@ -716,7 +716,7 @@ body {
               <div class="fl">Номер заявки</div>
               <div style="display:flex;gap:6px;align-items:center;">
                 <input class="finp" id="f-req" type="text" placeholder="Например: INC/REQ-001" style="flex:1;margin:0;">
-                <button type="button" id="ocr-btn" onclick="scanRequest()" title="Распознать с камеры" style="flex-shrink:0;width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+                <button type="button" id="ocr-btn" onclick="startOCR()" title="Распознать с камеры" style="flex-shrink:0;width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
                     <circle cx="12" cy="13" r="4"/>
@@ -747,7 +747,7 @@ body {
               <div id="ocr-counter" style="text-align:right;color:rgba(255,255,255,0.45);font-size:12px;margin-top:4px;">0 / 15</div>
             </div>
             <div style="display:flex;gap:10px;width:100%;max-width:360px;">
-              <button id="ocr-scan-btn" onclick="startMLKitOCR()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Сканировать</button>
+              <button id="ocr-scan-btn" onclick="scanOCRFrame()" style="flex:1;padding:13px;border-radius:10px;border:none;background:#444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;">📷 Сканировать</button>
               <button onclick="applyOcrManual()" style="flex:1;padding:13px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">✓ Применить</button>
             </div>
             <button onclick="closeOCR()" style="padding:10px 32px;border-radius:10px;border:none;background:transparent;color:rgba(255,255,255,0.35);font-size:13px;cursor:pointer;">Отмена</button>
@@ -1648,13 +1648,35 @@ function sendByEmail() {
   }
 }
 
-function startOCR() {
-  document.getElementById('ocr-modal').style.display = 'flex';
+async function startOCR(){
+
+  log('OPEN OCR');
+
+  const modal = document.getElementById('ocr-modal');
+  modal.style.display = 'flex';
+
   document.getElementById('ocr-manual-input').value = '';
-  document.getElementById('ocr-status').textContent = '';
-  const counter = document.getElementById('ocr-counter');
-  if (counter) counter.textContent = '0 / 15';
-  setTimeout(() => document.getElementById('ocr-manual-input').focus(), 150);
+  document.getElementById('ocr-status').textContent = 'Запуск камеры...';
+
+  const video = document.getElementById('ocr-video');
+  const wrap = document.getElementById('ocr-cam-wrap');
+
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+
+    video.srcObject = stream;
+    wrap.style.display = 'block';
+
+    window.ocrStream = stream;
+
+    document.getElementById('ocr-status').textContent = 'Наведите на номер заявки';
+
+  }catch(e){
+    log('CAMERA ERROR');
+    document.getElementById('ocr-status').textContent = 'Ошибка камеры';
+  }
 }
 
 function ocrInputFilter(input) {
@@ -1905,6 +1927,39 @@ async function startOCR(){
 
 }
 
+  async function scanOCRFrame(){
+
+  log('SCAN CLICK');
+
+  const video = document.getElementById('ocr-video');
+
+  if(!video || !video.videoWidth){
+    log('NO VIDEO');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  canvas.getContext('2d').drawImage(video,0,0);
+
+  await recognizeRequest(canvas);
+
+  closeOCRCamera();
+}
+
+function closeOCRCamera(){
+
+  if(window.ocrStream){
+    window.ocrStream.getTracks().forEach(t => t.stop());
+    window.ocrStream = null;
+  }
+
+  document.getElementById('ocr-cam-wrap').style.display = 'none';
+  closeOCR();
+}
+  
 // ── Log ───────────────────────────────────────────
 
 
