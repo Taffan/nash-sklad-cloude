@@ -1862,6 +1862,8 @@ async function scanRequest(){
 
   await recognizeRequest(canvas);
 
+  log('BUTTON CLICK')
+
 }
 
 async function startOCR(){
@@ -1901,6 +1903,34 @@ async function startOCR(){
   await worker.terminate();
 
 }
+
+// ── Log ───────────────────────────────────────────
+
+
+
+  function log(msg){
+  console.log(msg);
+
+  let el = document.getElementById('debug-log');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'debug-log';
+    el.style.position = 'fixed';
+    el.style.bottom = '0';
+    el.style.left = '0';
+    el.style.right = '0';
+    el.style.maxHeight = '200px';
+    el.style.overflow = 'auto';
+    el.style.background = 'black';
+    el.style.color = 'lime';
+    el.style.fontSize = '12px';
+    el.style.zIndex = '9999';
+    document.body.appendChild(el);
+  }
+
+  el.innerHTML += msg + '<br>';
+}
+
   
 </script>
 <script src="tesseract.min.js"></script>
