@@ -1858,11 +1858,11 @@ function captureFrame(){
 
 async function scanRequest(){
 
+  log('BUTTON CLICK')
+
   const canvas = captureFrame();
 
   await recognizeRequest(canvas);
-
-  log('BUTTON CLICK')
 
 }
 
