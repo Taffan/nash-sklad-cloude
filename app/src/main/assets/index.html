@@ -1885,27 +1885,7 @@ async function recognizeRequest(canvas){
 
     const match = text.match(/(INC|REQ)[0-9]{3,}/);
 
-    if(match){
-  const req = match[0];
-
-  const input = document.getElementById("f-req");
-
-  if(input){
-    input.value = req;
-
-    // триггерим события (важно!)
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  log('FOUND: ' + req);
-
-  // закрываем камеру ПОСЛЕ установки значения
-  setTimeout(() => {
-    closeOCRCamera();
-  }, 300);
-
-}else{
+    }else{
   log('NOT FOUND');
     }
 
@@ -1917,6 +1897,7 @@ async function recognizeRequest(canvas){
     await worker.terminate();
   }
 } 
+
 
 function captureFrame(){
 
