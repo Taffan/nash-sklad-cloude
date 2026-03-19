@@ -1845,10 +1845,10 @@ async function recognizeRequest(canvas){
   log('OCR START');
 
   const worker = await Tesseract.createWorker({
-    workerPath: 'worker.min.js',
-    corePath: 'tesseract-core.wasm.js',
-    langPath: '.'
-  });
+  workerPath: 'file:///android_asset/tesseract.worker.min.js',
+  corePath: 'file:///android_asset/tesseract-core.wasm.js',
+  langPath: 'file:///android_asset/'
+});
 
   log('WORKER CREATED');
 
