@@ -1888,7 +1888,27 @@ async function scanRequest(){
 
 }
 
+async function scanOCRFrame(){
 
+  log('SCAN CLICK');
+
+  const video = document.getElementById('ocr-video');
+
+  if(!video || !video.videoWidth){
+    log('NO VIDEO');
+    return;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  canvas.getContext('2d').drawImage(video,0,0);
+
+  await recognizeRequest(canvas);
+
+  closeOCRCamera();
+}
   
 // ── Log ───────────────────────────────────────────
 
