@@ -1652,43 +1652,44 @@ async function startOCR(){
 
   log('OPEN OCR');
 
-  const modal = document.getElementById('ocr-modal');
-  modal.style.display = 'flex';
-
-  document.getElementById('ocr-manual-input').value = '';
-  document.getElementById('ocr-status').textContent = 'Запуск камеры...';
-
-  const video = document.getElementById('ocr-video');
-  const wrap = document.getElementById('ocr-cam-wrap');
-
   try{
+
+    const modal = document.getElementById('ocr-modal');
+    if(modal) modal.style.display = 'flex';
+
+    const video = document.getElementById('ocr-video');
+    const wrap = document.getElementById('ocr-cam-wrap');
+
+    log('VIDEO: ' + video);
+    log('WRAP: ' + wrap);
+
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-  facingMode: { ideal: "environment" },
-  width: { ideal: 1920 },
-  height: { ideal: 1080 },
-  focusMode: "continuous"
-}
+        facingMode: { ideal: "environment" }
+      }
     });
 
-    video.srcObject = stream;
-    const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-
-    if(capabilities.focusMode){
-      track.applyConstraints({
-        advanced: [{ focusMode: "continuous" }]
-      });
+    if(!video){
+      log('NO VIDEO ELEMENT');
+      return;
     }
-    wrap.style.display = 'block';
+
+    video.srcObject = stream;
+
+    video.onloadedmetadata = () => {
+      video.play();
+      log('VIDEO PLAY');
+    };
+
+    if(wrap) wrap.style.display = 'block';
 
     window.ocrStream = stream;
 
-    document.getElementById('ocr-status').textContent = 'Наведите на номер заявки';
+    log('CAMERA OK');
 
   }catch(e){
-    log('CAMERA ERROR');
-    document.getElementById('ocr-status').textContent = 'Ошибка камеры';
+    log('CAMERA ERROR: ' + e);
+    alert('CAMERA ERROR: ' + e);
   }
 }
 
