@@ -1842,21 +1842,35 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 
 async function recognizeRequest(canvas){
 
-  const worker = await Tesseract.createWorker('rus+eng',1,TESSERACT_CONFIG);
+  log('OCR START');
+
+  const worker = await Tesseract.createWorker({
+    workerPath: 'worker.min.js',
+    corePath: 'tesseract-core.wasm.js',
+    langPath: '.'
+  });
+
+  log('WORKER CREATED');
+
+  await worker.loadLanguage('eng');
+  await worker.initialize('eng');
 
   const { data } = await worker.recognize(canvas);
 
+  log('OCR DONE');
+
   let text = data.text.toUpperCase();
+  text = text.replace(/[^A-Z0-9]/g,'');
 
-  text = text
-    .replace(/O/g,'0')
-    .replace(/I/g,'1')
-    .replace(/[^A-Z0-9]/g,'');
+  log('TEXT: ' + text);
 
-  const match = text.match(/(INC|REQ)[0-9]{12}/);
+  const match = text.match(/(INC|REQ)[0-9]{3,}/);
 
   if(match){
-      document.getElementById("f-req").value = match[0];
+    document.getElementById("f-req").value = match[0];
+    log('FOUND: ' + match[0]);
+  }else{
+    log('NOT FOUND');
   }
 
   await worker.terminate();
