@@ -2024,7 +2024,10 @@ async function scanOCRFrame(){
   el.innerHTML += msg + '<br>';
 }
 
-  
+  window.onerror = function(msg, url, line){
+  log('JS ERROR: ' + msg + ' @' + line);
+};
+    
 </script>
 <script src="tesseract.min.js"></script>
 </body>
