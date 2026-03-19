@@ -1931,22 +1931,64 @@ async function scanOCRFrame(){
 
   log('SCAN CLICK');
 
+  await new Promise(r => setTimeout(r, 300));
+
   const video = document.getElementById('ocr-video');
+  const frame = document.getElementById('ocr-frame');
 
   if(!video || !video.videoWidth){
     log('NO VIDEO');
     return;
   }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  if(!frame){
+    log('NO FRAME → FULL FRAME');
 
-  canvas.getContext('2d').drawImage(video,0,0);
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
-  await recognizeRequest(canvas);
+    canvas.getContext('2d').drawImage(video,0,0);
 
-  closeOCRCamera();
+    await recognizeRequest(canvas);
+    return;
+  }
+
+  try{
+
+    const vRect = video.getBoundingClientRect();
+    const fRect = frame.getBoundingClientRect();
+
+    const scaleX = video.videoWidth / vRect.width;
+    const scaleY = video.videoHeight / vRect.height;
+
+    let sx = (fRect.left - vRect.left) * scaleX;
+    let sy = (fRect.top - vRect.top) * scaleY;
+    let sw = fRect.width * scaleX;
+    let sh = fRect.height * scaleY;
+
+    // 🔥 немного уменьшаем рамку (убираем края)
+    const pad = 10;
+    sx += pad;
+    sy += pad;
+    sw -= pad * 2;
+    sh -= pad * 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sw;
+    canvas.height = sh;
+
+    const ctx = canvas.getContext('2d');
+
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
+
+    log('CROPPED: ' + Math.round(sw) + 'x' + Math.round(sh));
+
+    await recognizeRequest(canvas);
+
+  }catch(e){
+    log('CROP ERROR: ' + e);
+  }
 }
   
 // ── Log ───────────────────────────────────────────
