@@ -1840,7 +1840,7 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('visibilitychange', () => { if (document.hidden && camActive) stopCam(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
- async function recognizeRequest(canvas){
+async function recognizeRequest(canvas){
 
   log('OCR START');
 
@@ -1848,16 +1848,13 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 
   try{
     worker = await Tesseract.createWorker({
-      workerPath: 'tesseract.worker.min.js',
-      corePath: 'tesseract-core.wasm.js',
-      langPath: './'
+      workerBlobURL: true
     });
 
     log('WORKER CREATED');
 
   }catch(e){
-    log('WORKER ERROR: ' + e.message);
-    console.log(e);
+    log('WORKER ERROR: ' + e);
     return;
   }
 
@@ -1869,8 +1866,7 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 
     log('OCR DONE');
 
-    let text = data.text.toUpperCase();
-    text = text.replace(/[^A-Z0-9]/g,'');
+    let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
 
     log('TEXT: ' + text);
 
@@ -1884,13 +1880,13 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
     }
 
   }catch(e){
-    log('OCR ERROR: ' + e.message);
+    log('OCR ERROR: ' + e);
   }
 
   if(worker){
     await worker.terminate();
   }
-}
+} 
 
 function captureFrame(){
 
