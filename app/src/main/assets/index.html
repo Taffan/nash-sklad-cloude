@@ -1024,6 +1024,10 @@ body {
 
 
 <script>
+  
+  window.onerror = function(msg, url, line){
+  alert(msg + ' LINE ' + line);
+};
 
 const TESSERACT_CONFIG = {
   workerPath: 'worker.min.js',
