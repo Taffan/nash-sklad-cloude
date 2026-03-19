@@ -1840,40 +1840,56 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('visibilitychange', () => { if (document.hidden && camActive) stopCam(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
-async function recognizeRequest(canvas){
+ async function recognizeRequest(canvas){
 
   log('OCR START');
 
-  const worker = await Tesseract.createWorker({
-  workerPath: 'file:///android_asset/tesseract.worker.min.js',
-  corePath: 'file:///android_asset/tesseract-core.wasm.js',
-  langPath: 'file:///android_asset/'
-});
+  let worker;
 
-  log('WORKER CREATED');
+  try{
+    worker = await Tesseract.createWorker({
+      workerPath: 'file:///android_asset/tesseract.worker.min.js',
+      corePath: 'file:///android_asset/tesseract-core.wasm.js',
+      langPath: 'file:///android_asset/'
+    });
 
-  await worker.loadLanguage('eng');
-  await worker.initialize('eng');
+    log('WORKER CREATED');
 
-  const { data } = await worker.recognize(canvas);
-
-  log('OCR DONE');
-
-  let text = data.text.toUpperCase();
-  text = text.replace(/[^A-Z0-9]/g,'');
-
-  log('TEXT: ' + text);
-
-  const match = text.match(/(INC|REQ)[0-9]{3,}/);
-
-  if(match){
-    document.getElementById("f-req").value = match[0];
-    log('FOUND: ' + match[0]);
-  }else{
-    log('NOT FOUND');
+  }catch(e){
+    log('WORKER ERROR: ' + e.message);
+    console.log(e);
+    return;
   }
 
-  await worker.terminate();
+  try{
+    await worker.loadLanguage('eng');
+    await worker.initialize('eng');
+
+    const { data } = await worker.recognize(canvas);
+
+    log('OCR DONE');
+
+    let text = data.text.toUpperCase();
+    text = text.replace(/[^A-Z0-9]/g,'');
+
+    log('TEXT: ' + text);
+
+    const match = text.match(/(INC|REQ)[0-9]{3,}/);
+
+    if(match){
+      document.getElementById("f-req").value = match[0];
+      log('FOUND: ' + match[0]);
+    }else{
+      log('NOT FOUND');
+    }
+
+  }catch(e){
+    log('OCR ERROR: ' + e.message);
+  }
+
+  if(worker){
+    await worker.terminate();
+  }
 }
 
 function captureFrame(){
