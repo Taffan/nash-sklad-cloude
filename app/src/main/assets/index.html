@@ -1662,10 +1662,23 @@ async function startOCR(){
 
   try{
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }
+      video: {
+  facingMode: { ideal: "environment" },
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
+  focusMode: "continuous"
+}
     });
 
     video.srcObject = stream;
+    const track = stream.getVideoTracks()[0];
+    const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+
+    if(capabilities.focusMode){
+      track.applyConstraints({
+        advanced: [{ focusMode: "continuous" }]
+      });
+    }
     wrap.style.display = 'block';
 
     window.ocrStream = stream;
@@ -1859,8 +1872,8 @@ async function recognizeRequest(canvas){
   }
 
   try{
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
+    await worker.loadLanguage('eng+rus');
+    await worker.initialize('eng+rus');
 
     const { data } = await worker.recognize(canvas);
 
@@ -1911,8 +1924,8 @@ function captureFrame(){
 
   const canvas = document.createElement("canvas");
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  canvas.width = video.videoWidth * 1.5;
+  canvas.height = video.videoHeight * 1.5;
 
   const ctx = canvas.getContext("2d");
 
