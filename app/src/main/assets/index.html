@@ -1848,9 +1848,9 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
 
   try{
     worker = await Tesseract.createWorker({
-      workerPath: 'file:///android_asset/tesseract.worker.min.js',
-      corePath: 'file:///android_asset/tesseract-core.wasm.js',
-      langPath: 'file:///android_asset/'
+      workerPath: 'tesseract.worker.min.js',
+      corePath: 'tesseract-core.wasm.js',
+      langPath: './'
     });
 
     log('WORKER CREATED');
