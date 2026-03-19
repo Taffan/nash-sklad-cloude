@@ -650,6 +650,622 @@ body {
             <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
             <div class="fc">
               <div class="fl">Модель / Наименование</div>
+              <input class="finp"  --surface: #ffffff;
+  --surface2: #e8e8e8;
+  --border: #d0d0d0;
+  --accent: #cc1f1f;
+  --accent-dim: rgba(204,31,31,0.10);
+  --danger: #b91c1c;
+  --text: #1a1a1a;
+  --text2: #555555;
+  --text3: #999999;
+  --r: 8px;
+}
+
+[data-theme="dark"] {
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --surface2: #2a2a2a;
+  --border: #383838;
+  --accent: #e03333;
+  --accent-dim: rgba(224,51,51,0.15);
+  --danger: #ef4444;
+  --text: #f0f0f0;
+  --text2: #aaaaaa;
+  --text3: #666666;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Roboto', sans-serif;
+  background: #efefef;
+  background: var(--bg);
+  color: #1a1a1a;
+  color: var(--text);
+}
+
+/* ═══ APP SHELL ═══
+   Uses display:grid with rows: topbar / content / tabbar
+   Content row is the only one that grows.
+   Inside content, each tab-panel is absolute-positioned.
+   The scan panel uses flex-column: fixed-top (shrink:0) + scrollable (flex:1, overflow-y:auto)
+*/
+
+#app {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  height: 100dvh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Topbar ── */
+#topbar { display: none !important; }
+#topbar_hidden {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.tb-icon {
+  width: 32px; height: 32px;
+  background: none;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+#tb-title { flex: 1; font-size: 16px; font-weight: 600; }
+
+#tb-count {
+  background: var(--accent-dim); color: var(--accent);
+  font-size: 12px; font-weight: 600;
+  padding: 3px 10px; border-radius: 20px;
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* ── Content area ── */
+#content {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ── Tab panels ── */
+.tab-panel {
+  display: none;
+  position: absolute;
+  inset: 0;
+}
+
+/* Scan panel: flex column so fixed-top + scrollable stack vertically */
+#tab-scan {
+  flex-direction: column;
+}
+
+#tab-scan.active {
+  display: flex;
+}
+
+/* Records panel: simply scrollable */
+#tab-rec.active {
+  display: block;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Settings panel */
+#tab-settings.active {
+  display: block;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Tabbar ── */
+#tabbar {
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  min-height: 56px;
+  flex-shrink: 0;
+  z-index: 50;
+}
+
+.tab-divider {
+  width: 1px;
+  background: var(--border);
+  margin: 10px 0;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px;
+  font-size: 10px; font-weight: 500;
+  color: var(--text3);
+  border: none; background: none;
+  cursor: pointer;
+  position: relative;
+  font-family: 'Roboto', sans-serif;
+  transition: color 0.15s;
+}
+
+.tab-btn.active { color: var(--accent); }
+.tab-btn.active::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent);
+  border-radius: 0 0 2px 2px;
+}
+
+/* ══════════════════════════
+   SCAN SCREEN
+══════════════════════════ */
+
+/* Fixed top: does NOT scroll */
+.fixed-top { flex-shrink: 0; background: var(--bg); }
+
+.cam-area { display: flex; justify-content: center; padding: 10px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
+
+/* Section toggle */
+.section-toggle {
+  display: flex;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.sec-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px;
+  font-size: 14px; font-weight: 600;
+  font-family: 'Roboto', sans-serif;
+  cursor: pointer;
+  border: 1.5px solid var(--border);
+  background: var(--surface2); color: var(--text2);
+  transition: all 0.15s;
+}
+
+.sec-btn:first-child { border-radius: var(--r) 0 0 var(--r); }
+.sec-btn:last-child  { border-radius: 0 var(--r) var(--r) 0; border-left: none; }
+.sec-btn.active      { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.fio-list {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(100% + 2px);
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: 8px;
+  z-index: 500;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.18);
+}
+.fio-item {
+  padding: 11px 14px;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.fio-item:last-child { border-bottom: none; }
+.fio-item:active { background: var(--accent-dim); }
+.fio-del {
+  background: none; border: none;
+  color: var(--text3); font-size: 16px;
+  cursor: pointer; padding: 0 0 0 8px;
+  line-height: 1;
+}
+.fio-del:active { color: var(--danger); }
+
+.status-toggle {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+}
+.st-btn {
+  flex: 1;
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'Roboto', sans-serif;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface2);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.st-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Camera */
+.cam-wrap {
+  position: relative;
+  background: #000;
+  height: 70px; width: 100%;
+  max-width: 70vw;
+  border-radius: 6px; overflow: hidden;
+}
+
+.cam-wrap video { width: 100%; height: 100%; object-fit: cover; display: none; }
+.cam-wrap canvas { position: absolute; inset: 0; pointer-events: none; display: none; }
+
+.cam-ph {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 5px; color: #666; font-size: 10px; text-align: center; padding: 8px;
+}
+
+.sfwrap {
+  position: absolute; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+
+.sf {
+  width: 60px; height: 35px; position: relative;
+}
+
+.sf::before {
+  content: ''; position: absolute; inset: 0;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+}
+
+.sfc { position: absolute; width: 12px; height: 12px; border-color: #fff; border-style: solid; }
+.sfc.tl { top:0; left:0;    border-width: 2px 0 0 2px; }
+.sfc.tr { top:0; right:0;   border-width: 2px 2px 0 0; }
+.sfc.bl { bottom:0; left:0; border-width: 0 0 2px 2px; }
+.sfc.br { bottom:0; right:0;border-width: 0 2px 2px 0; }
+
+.sl {
+  position: absolute; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sl 1.8s ease-in-out infinite;
+  box-shadow: 0 0 4px var(--accent);
+}
+@keyframes sl { 0%,100%{top:2px} 50%{top:calc(100% - 4px)} }
+
+/* Camera button */
+.cam-btn-row {
+  padding: 0 16px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.btn-cam {
+  width: 100%;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--r);
+  padding: 11px;
+  font-size: 14px; font-weight: 600;
+  font-family: 'Roboto', sans-serif;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.15s;
+}
+
+.btn-cam:active { background: #aa1a1a; }
+.btn-cam.stop   { background: #555; }
+
+/* ── Scrollable form ── */
+.scrollable {
+  flex: 1;                          /* take remaining height */
+  min-height: 0;                    /* CRITICAL for flex children to shrink */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px 16px 40px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* Field groups */
+.fg {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  flex-shrink: 0;
+  position: relative;
+}
+
+.fr {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  min-height: 62px;
+}
+
+.fr:last-child { border-bottom: none; }
+
+.fi { color: var(--accent); flex-shrink: 0; width: 22px; display: flex; align-items: center; justify-content: center; }
+
+.fc { flex: 1; min-width: 0; position: relative; }
+
+.fl {
+  font-size: 11px; font-weight: 600; color: var(--text2);
+  margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.3px;
+}
+
+.finp {
+  background: none; border: none; outline: none;
+  color: var(--text); font-family: 'Roboto', sans-serif; font-size: 15px; width: 100%;
+}
+
+.finp::placeholder { color: var(--text3); }
+.finp[type="date"] { color-scheme: light; }
+
+.bcv {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 15px; color: var(--accent); letter-spacing: 0.5px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.bch-active {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+.bch { font-size: 12px; color: var(--text3); }
+
+.btn-add {
+  flex-shrink: 0;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: var(--r);
+  padding: 15px; font-size: 15px; font-weight: 600;
+  font-family: 'Roboto', sans-serif;
+  cursor: pointer; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: background 0.15s;
+}
+
+.btn-add:active { background: #aa1a1a; }
+
+.btn-sec {
+  flex-shrink: 0;
+  background: transparent; color: var(--text2);
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  padding: 13px; font-size: 14px; font-weight: 500;
+  font-family: 'Roboto', sans-serif;
+  cursor: pointer; width: 100%;
+  transition: background 0.15s;
+}
+
+.btn-sec:active { background: var(--surface2); }
+
+/* ══════════════════════════
+   RECORDS SCREEN
+══════════════════════════ */
+
+.rec-hdr {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px; padding: 10px 16px;
+}
+.rec-hdr-search { display: flex; align-items: center; }
+.rec-hdr-btns { display: flex; gap: 8px; }
+.rec-hdr-btns .btn-xl { flex: 1; justify-content: center; }
+
+.sw {
+  flex: 1; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--r);
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+}
+
+.sw input {
+  background: none; border: none; outline: none;
+  color: var(--text); font-family: 'Roboto', sans-serif; font-size: 14px; flex: 1;
+}
+
+.sw input::placeholder { color: var(--text3); }
+
+.btn-xl {
+  background: var(--accent-dim); color: var(--accent);
+  border: 1px solid rgba(204,31,31,0.25); border-radius: var(--r);
+  padding: 8px 14px; font-size: 13px; font-weight: 600;
+  font-family: 'Roboto', sans-serif;
+  cursor: pointer; white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+}
+
+.btn-xl:active { background: rgba(204,31,31,0.18); }
+
+.rec-list { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+.rc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 14px;
+}
+
+.rc-top {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+}
+
+.rc-bc {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 14px; font-weight: 500; color: var(--accent);
+  flex: 1; word-break: break-all;
+}
+
+.rc-type {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+}
+
+.rc-type.inc { background: rgba(34,197,94,0.12); color: #16a34a; }
+.rc-type.exp { background: rgba(204,31,31,0.10); color: var(--accent); }
+
+.rc-time { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+.rc-del {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; font-size: 20px; line-height: 1; padding: 0 0 0 4px;
+}
+.rc-del:active { color: var(--danger); }
+
+.rc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chip {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 3px 8px;
+  font-size: 11px; color: var(--text2);
+  display: flex; align-items: center; gap: 3px;
+}
+
+.cl { color: var(--text3); }
+
+.empty {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; padding: 60px 20px;
+  color: var(--text3); text-align: center; font-size: 14px;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 72px; left: 16px; right: 16px;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 16px; font-size: 14px; font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  transform: translateY(16px); opacity: 0;
+  transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  z-index: 999; pointer-events: none;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok  { border-color: #16a34a; color: #16a34a; }
+.toast.err { border-color: var(--danger); color: var(--danger); }
+
+.flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 998; transition: opacity 0.08s; }
+.flash.on { opacity: 0.25; }
+
+</style>
+</head>
+<body>
+
+<div id="loader" style="position:fixed;inset:0;background:#efefef;display:flex;align-items:center;justify-content:center;z-index:9999;flex-direction:column;gap:12px;">
+  <svg width="48" height="48" viewBox="0 0 32 32" fill="none">
+    <rect width="32" height="32" rx="7" fill="#ffffff"/>
+    <rect x="2" y="2" width="3" height="22" rx="1" fill="#cc1f1f"/>
+    <rect x="7" y="2" width="2" height="22" rx="1" fill="#cc1f1f"/>
+    <rect x="11" y="2" width="4" height="22" rx="1" fill="#cc1f1f"/>
+    <rect x="17" y="2" width="2" height="22" rx="1" fill="#cc1f1f"/>
+    <rect x="21" y="2" width="3" height="22" rx="1" fill="#cc1f1f"/>
+    <rect x="26" y="2" width="2" height="22" rx="1" fill="#cc1f1f"/>
+    <rect x="0" y="27" width="32" height="2.5" rx="1.2" fill="#1a1a1a" opacity="0.75"/>
+  </svg>
+  <div style="font-size:14px;color:#555;font-family:sans-serif;">Наш Склад</div>
+</div>
+
+<div id="app">
+  <div id="content">
+<div class="tab-panel active" id="tab-scan">
+
+      <div class="fixed-top">
+        <div class="section-toggle">
+          <button class="sec-btn active" id="btn-income" onclick="setSection('income')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+            Поступление
+          </button>
+          <button class="sec-btn" id="btn-expense" onclick="setSection('expense')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+            Расход
+          </button>
+        </div>
+
+        <div style="display:flex;justify-content:center;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);">
+        <div class="cam-wrap" style="margin:0;">
+          <div class="cam-ph" id="cam-ph">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.35">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            <span>Нажмите кнопку ниже</span>
+          </div>
+          <video id="video" playsinline autoplay muted></video>
+          <canvas id="cv"></canvas>
+          <div class="sfwrap" id="sfwrap">
+            <div class="sf">
+              <div class="sfc tl"></div><div class="sfc tr"></div>
+              <div class="sfc bl"></div><div class="sfc br"></div>
+              <div class="sl"></div>
+            </div>
+          </div>
+        </div>
+        </div><!-- /cam-center -->
+
+        <div class="cam-btn-row">
+          <button class="btn-cam" id="cam-btn" onclick="toggleCam()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="3"/>
+            </svg>
+            <span id="cam-txt">Включить камеру</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="scrollable">
+
+        <div class="fg">
+          <div class="fr" onclick="toggleManual()">
+            <div class="fi">
+              <svg width="20" height="20" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Полосы — красный -->
+                <rect x="1"  y="2" width="3" height="18" rx="0.8" fill="#cc1f1f"/>
+                <rect x="6"  y="2" width="2" height="18" rx="0.8" fill="#cc1f1f"/>
+                <rect x="10" y="2" width="3" height="18" rx="0.8" fill="#cc1f1f"/>
+                <rect x="15" y="2" width="2" height="18" rx="0.8" fill="#cc1f1f"/>
+                <rect x="19" y="2" width="3" height="18" rx="0.8" fill="#cc1f1f"/>
+                <rect x="24" y="2" width="2" height="18" rx="0.8" fill="#cc1f1f"/>
+                <!-- Линия сканирования — тёмная -->
+                <rect x="0" y="23" width="28" height="2" rx="1" fill="#1a1a1a" opacity="0.7"/>
+              </svg>
+            </div>
+            <div class="fc">
+              <div class="fl">КЕ</div>
+              <div id="bc-disp" class="bch">Наведите камеру или введите вручную</div>
+              <div id="bc-tap" style="font-size:11px;color:var(--text3);margin-top:2px">Нажмите для ручного ввода</div>
+            </div>
+          </div>
+          <div class="fr" id="manual-row" style="display:none">
+            <div class="fi" style="color:var(--accent)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </div>
+            <div class="fc">
+              <div class="fl">Ввод вручную</div>
+              <input class="finp" id="manual-in" type="text" placeholder="Введите штрих-код..."
+                oninput="applyManualLive()" onchange="applyManualLive()"
+                onkeydown="if(event.key==='Enter'){applyManualLive();this.blur()}" inputmode="text">
+            </div>
+          </div>
+        </div>
+
+        <div class="fg">
+          <!-- Поступление: Модель -->
+          <div class="fr" id="row-model">
+            <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
+            <div class="fc">
+              <div class="fl">Модель / Наименование</div>
               <input class="finp" id="f-model" type="text" placeholder="Введите модель..." autocomplete="off" oninput="onMemInput(this,'model')" onfocus="onMemInput(this,'model')" onkeydown="onMemKey(event,'model')" onblur="setTimeout(()=>hideMemList('model'),200)">
               <div class="fio-list" id="mem-list-model" style="display:none"></div>
             </div>
