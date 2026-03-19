@@ -1896,23 +1896,27 @@ async function recognizeRequest(canvas){
 
     log('TEXT: ' + text);
 
-    const match = text.match(/(INC|REQ)[0-9]{6,}/);
+    let match = text.match(/(INC|REQ)[0-9O]{6,}/);
 
-    if(match){
-      const req = match[0];
+if(match){
 
-      const input = document.getElementById("ocr-manual-input");
-      if(input) input.value = req;
+  let raw = match[0];
 
-      log('FOUND: ' + req);
+  // 👉 первые 3 символа (INC или REQ)
+  let prefix = raw.slice(0,3);
 
-    }else{
-      log('NOT FOUND');
-    }
+  // 👉 всё остальное: O → 0
+  let numbers = raw.slice(3).replace(/O/g,'0');
 
-  }catch(e){
-    log('OCR ERROR: ' + e);
-  }
+  const req = prefix + numbers;
+
+  const input = document.getElementById("ocr-manual-input");
+  if(input) input.value = req;
+
+  log('FIXED: ' + req);
+
+}else{
+  log('NOT FOUND');
 }
 
 
