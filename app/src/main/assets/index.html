@@ -1888,76 +1888,7 @@ async function scanRequest(){
 
 }
 
-async function startOCR(){
 
-  const video = document.querySelector("video");
-
-  if(!video){
-    alert("Камера не запущена");
-    return;
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video,0,0);
-
-  const { createWorker } = Tesseract;
-
-  const worker = await createWorker('eng');
-
-  const { data } = await worker.recognize(canvas);
-
-  let text = data.text.toUpperCase();
-
-  text = text.replace(/[^A-Z0-9]/g,'');
-
-  const match = text.match(/(INC|REQ)[0-9]{3,}/);
-
-  if(match){
-    document.getElementById("f-req").value = match[0];
-  }else{
-    alert("Номер заявки не найден");
-  }
-
-  await worker.terminate();
-
-}
-
-  async function scanOCRFrame(){
-
-  log('SCAN CLICK');
-
-  const video = document.getElementById('ocr-video');
-
-  if(!video || !video.videoWidth){
-    log('NO VIDEO');
-    return;
-  }
-
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-
-  canvas.getContext('2d').drawImage(video,0,0);
-
-  await recognizeRequest(canvas);
-
-  closeOCRCamera();
-}
-
-function closeOCRCamera(){
-
-  if(window.ocrStream){
-    window.ocrStream.getTracks().forEach(t => t.stop());
-    window.ocrStream = null;
-  }
-
-  document.getElementById('ocr-cam-wrap').style.display = 'none';
-  closeOCR();
-}
   
 // ── Log ───────────────────────────────────────────
 
