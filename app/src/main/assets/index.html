@@ -1895,7 +1895,8 @@ async function recognizeRequest(canvas){
     text = text.replace(/^.*?(INC|REQ)/, '$1');
 
     log('TEXT: ' + text);
-
+    
+    text = text.replace(/^.*?(INC|REQ)/, '$1');
     let match = text.match(/(INC|REQ)[0-9O]{6,}/);
 
 if(match){
