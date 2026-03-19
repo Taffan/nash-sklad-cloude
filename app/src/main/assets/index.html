@@ -1024,10 +1024,6 @@ body {
 
 
 <script>
-  
-  window.onerror = function(msg, url, line){
-  alert(msg + ' LINE ' + line);
-};
 
 const TESSERACT_CONFIG = {
   workerPath: 'worker.min.js',
@@ -1889,8 +1885,18 @@ async function recognizeRequest(canvas){
 
     const match = text.match(/(INC|REQ)[0-9]{3,}/);
 
+    if(match){
+      const req = match[0];
+
+      const input = document.getElementById("ocr-manual-input");
+      if(input){
+        input.value = req;
+      }
+
+      log('FOUND: ' + req);
+
     }else{
-  log('NOT FOUND');
+      log('NOT FOUND');
     }
 
   }catch(e){
