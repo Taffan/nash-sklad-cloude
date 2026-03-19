@@ -1024,7 +1024,7 @@ body {
 
 
 <script>
-
+  
 const TESSERACT_CONFIG = {
   workerPath: 'worker.min.js',
   corePath: 'tesseract-core.wasm.js',
@@ -1850,9 +1850,24 @@ document.addEventListener('DOMContentLoaded', function() {
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
 });
 
-document.addEventListener('visibilitychange', () => { if (document.hidden && camActive) stopCam(); });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+document.addEventListener('visibilitychange', () => {
+  try{
+    if (document.hidden && window.camActive){
+      stopCam();
+    }
+  }catch(e){
+    console.log('VISIBILITY ERROR', e);
+  }
+});
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(e => {
+    console.log('SW ERROR', e);
+  });
+}
+  
+let ocrWorker = null;
+  
 async function recognizeRequest(canvas){
 
   log('OCR START');
