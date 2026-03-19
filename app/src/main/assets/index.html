@@ -1859,8 +1859,8 @@ async function recognizeRequest(canvas){
   }
 
   try{
-    await worker.loadLanguage('eng');
-    await worker.initialize('eng');
+    await worker.loadLanguage('eng+rus');
+    await worker.initialize('eng+rus');
 
     const { data } = await worker.recognize(canvas);
 
