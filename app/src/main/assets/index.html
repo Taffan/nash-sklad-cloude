@@ -1875,20 +1875,34 @@ async function recognizeRequest(canvas){
     if(match){
   const req = match[0];
 
-  // 👉 заполняем поле В МОДАЛКЕ
-  const input = document.getElementById("ocr-manual-input");
+  const input = document.getElementById("f-req");
 
   if(input){
     input.value = req;
 
+    // триггерим события (важно!)
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   log('FOUND: ' + req);
 
+  // закрываем камеру ПОСЛЕ установки значения
+  setTimeout(() => {
+    closeOCRCamera();
+  }, 300);
+
 }else{
   log('NOT FOUND');
+    }
+
+  }catch(e){
+    log('OCR ERROR: ' + e);
+  }
+
+  if(worker){
+    await worker.terminate();
+  }
 } 
 
 function captureFrame(){
