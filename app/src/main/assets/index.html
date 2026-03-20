@@ -1891,34 +1891,35 @@ async function recognizeRequest(canvas){
 
     let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
 
-    // 🔥 убираем мусор до INC/REQ
     text = text.replace(/^.*?(INC|REQ)/, '$1');
 
     log('TEXT: ' + text);
-    
-    text = text.replace(/^.*?(INC|REQ)/, '$1');
+
     let match = text.match(/(INC|REQ)[0-9O]{12,}/);
 
-if(match){
+    if(match){
 
-  let raw = match[0];
+      let raw = match[0];
 
-  // 👉 первые 3 символа (INC или REQ)
-  let prefix = raw.slice(0,3);
+      let prefix = raw.slice(0,3);
+      let numbers = raw.slice(3).replace(/O/g,'0');
 
-  // 👉 всё остальное: O → 0
-  let numbers = raw.slice(3).replace(/O/g,'0');
+      const req = prefix + numbers;
 
-  const req = prefix + numbers;
+      const input = document.getElementById("ocr-manual-input");
+      if(input) input.value = req;
 
-  const input = document.getElementById("ocr-manual-input");
-  if(input) input.value = req;
+      log('FIXED: ' + req);
 
-  log('FIXED: ' + req);
+    }else{
+      log('NOT FOUND');
+    }
 
-}else{
-  log('NOT FOUND');
-}
+  }catch(e){
+    log('OCR ERROR: ' + e);
+  }
+
+  }
 
 
 function captureFrame(){
