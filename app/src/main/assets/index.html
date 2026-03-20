@@ -1848,6 +1848,24 @@ document.addEventListener('DOMContentLoaded', function() {
   updateCount();
   const fdate = document.getElementById('f-date');
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
+  setTimeout(async () => {
+    try{
+      if(!ocrWorker){
+        log('PRELOAD WORKER');
+
+        ocrWorker = await Tesseract.createWorker({
+          workerBlobURL: true
+        });
+
+        await ocrWorker.loadLanguage('eng+rus');
+        await ocrWorker.initialize('eng+rus');
+
+        log('WORKER READY');
+      }
+    }catch(e){
+      log('PRELOAD ERROR: ' + e);
+    }
+  }, 1000);
 });
 
 document.addEventListener('visibilitychange', () => {
