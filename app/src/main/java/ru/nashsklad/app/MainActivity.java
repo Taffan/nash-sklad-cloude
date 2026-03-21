@@ -39,8 +39,9 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void sendEmail(String subject, String body) {
             try {
-                Intent intent = new Intent(Intent.ACTION_SENDTO);
-                intent.setData(Uri.parse("mailto:"));
+                Intent intent = new Intent(Intent.ACTION_SEND);
+                intent.setType("message/rfc822");
+
                 intent.putExtra(Intent.EXTRA_SUBJECT, subject);
                 intent.putExtra(Intent.EXTRA_TEXT, body);
                 activity.startActivity(Intent.createChooser(intent, "Отправить отчёт"));
