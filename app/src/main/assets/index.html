@@ -1930,7 +1930,12 @@ const { data } = await ocrWorker.recognize(canvas);
 
     log('OCR DONE');
 
-    let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    let text = data.text.toUpperCase();
+
+    text = text
+      .replace(/[^A-Z0-9]/g,'')
+      .replace(/I/g,'1')   // часто путает
+      .replace(/S/g,'5');  // иногда бывает
 
     text = text.replace(/^.*?(INC|REQ)/, '$1');
 
