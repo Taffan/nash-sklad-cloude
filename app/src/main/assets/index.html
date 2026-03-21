@@ -1857,8 +1857,8 @@ document.addEventListener('DOMContentLoaded', function() {
           workerBlobURL: true
         });
 
-        await ocrWorker.loadLanguage('eng+rus');
-        await ocrWorker.initialize('eng+rus');
+        await ocrWorker.loadLanguage('eng');
+        await ocrWorker.initialize('eng');
             await ocrWorker.setParameters({
               tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
               tessedit_pageseg_mode: 7
@@ -1901,8 +1901,8 @@ async function recognizeRequest(canvas){
         workerBlobURL: true
       });
 
-      await ocrWorker.loadLanguage('eng+rus');
-      await ocrWorker.initialize('eng+rus');
+      await ocrWorker.loadLanguage('eng');
+      await ocrWorker.initialize('eng');
 
       log('WORKER INIT DONE');
     }
