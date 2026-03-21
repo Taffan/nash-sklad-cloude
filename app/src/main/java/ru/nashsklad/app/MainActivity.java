@@ -67,11 +67,15 @@ public class MainActivity extends AppCompatActivity {
                 );
 
                 Intent intent = new Intent(Intent.ACTION_SEND);
-                intent.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                intent.setType("*/*");
+
                 intent.putExtra(Intent.EXTRA_STREAM, uri);
+                intent.putExtra(Intent.EXTRA_SUBJECT, "Отчёт");
+                intent.putExtra(Intent.EXTRA_TEXT, "Файл отчёта");
+
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
-                activity.startActivity(Intent.createChooser(intent, "Отправить файл"));
+                activity.startActivity(Intent.createChooser(intent, "Открыть или отправить"));
             } catch (Exception e) {
                 Log.e(TAG, "Ошибка экспорта XLSX", e);
                 Toast.makeText(activity, "Ошибка экспорта: " + e.getMessage(), Toast.LENGTH_LONG).show();
