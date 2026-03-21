@@ -1888,9 +1888,9 @@ if ('serviceWorker' in navigator) {
   });
 }
   
-let ocrWorker = null;
-  
-async function recognizeRequest(canvas){
+let ocrWorker = null; 
+
+  async function recognizeRequest(canvas){
 
   log('OCR START');
 
@@ -1904,75 +1904,76 @@ async function recognizeRequest(canvas){
       await ocrWorker.loadLanguage('eng');
       await ocrWorker.initialize('eng');
 
+      await ocrWorker.setParameters({
+        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        tessedit_pageseg_mode: 7
+      });
+
       log('WORKER INIT DONE');
     }
 
+    // 🔥 защита
+    if(!canvas){
+      log('NO CANVAS');
+      return;
+    }
+
     // 🔥 обработка изображения
-const ctx = canvas.getContext('2d');
-const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-const d = img.data;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = img.data;
 
-for (let i = 0; i < d.length; i += 4) {
-  const gray = (d[i] + d[i+1] + d[i+2]) / 3;
-  const val = gray > 140 ? 255 : 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const gray = (d[i] + d[i+1] + d[i+2]) / 3;
+      const val = gray > 140 ? 255 : 0;
 
-  d[i] = val;
-  d[i+1] = val;
-  d[i+2] = val;
-}
+      d[i] = val;
+      d[i+1] = val;
+      d[i+2] = val;
+    }
 
-ctx.putImageData(img, 0, 0);
+    ctx.putImageData(img, 0, 0);
 
-
-
+    // 👉 OCR
     const { data } = await ocrWorker.recognize(canvas);
 
     log('OCR DONE');
 
-    let text = data.text.toUpperCase();
-
-    text = text
-      .replace(/[^A-Z0-9]/g,'')
-      .replace(/I/g,'1')   // часто путает
-      .replace(/S/g,'5');  // иногда бывает
+    let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
 
     text = text.replace(/^.*?(INC|REQ)/, '$1');
 
     log('TEXT: ' + text);
 
-    let match = text.match(/(INC|REQ)[0-9O]{12,}/);
+    let match = text.match(/(INC|REQ)[0-9O]{12}/);
 
-let match = text.match(/(INC|REQ)[0-9O]{12}/);
+    if(match){
 
-if(match){
+      let raw = match[0];
 
-  let raw = match[0].slice(0, 15); // 3 + 12
+      let prefix = raw.slice(0,3);
+      let numbers = raw
+        .slice(3)
+        .replace(/O/g,'0')
+        .replace(/I/g,'1')
+        .replace(/S/g,'5');
 
-  let prefix = raw.slice(0,3);
+      const req = prefix + numbers;
 
-  let numbers = raw
-    .slice(3)
-    .replace(/O/g,'0')
-    .replace(/I/g,'1')
-    .replace(/S/g,'5');
+      const input = document.getElementById("ocr-manual-input");
+      if(input) input.value = req;
 
-  const req = prefix + numbers;
+      log('FIXED: ' + req);
 
-  const input = document.getElementById("ocr-manual-input");
-  if(input) input.value = req;
-
-  log('FIXED: ' + req);
-
-  }else{
-  log('NOT FOUND');
-  }
+    }else{
+      log('NOT FOUND');
+    }
 
   }catch(e){
     log('OCR ERROR: ' + e);
   }
 
-  }
-
+}
 
 function captureFrame(){
 
