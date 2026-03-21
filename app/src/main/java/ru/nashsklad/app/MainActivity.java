@@ -37,6 +37,20 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+        public void sendEmail(String subject, String body) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_SENDTO);
+                intent.setData(Uri.parse("mailto:"));
+                intent.putExtra(Intent.EXTRA_SUBJECT, subject);
+                intent.putExtra(Intent.EXTRA_TEXT, body);
+                activity.startActivity(Intent.createChooser(intent, "Отправить отчёт"));
+            } catch (Exception e) {
+                Log.e(TAG, "Ошибка отправки почты", e);
+                Toast.makeText(activity, "Почтовый клиент не найден", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        @JavascriptInterface
         public void shareXlsx(String base64, String filename) {
             try {
                 byte[] data = Base64.decode(base64, Base64.DEFAULT);
