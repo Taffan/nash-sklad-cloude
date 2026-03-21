@@ -1943,23 +1943,30 @@ const { data } = await ocrWorker.recognize(canvas);
 
     let match = text.match(/(INC|REQ)[0-9O]{12,}/);
 
-    if(match){
+let match = text.match(/(INC|REQ)[0-9O]{12}/);
 
-      let raw = match[0];
+if(match){
 
-      let prefix = raw.slice(0,3);
-      let numbers = raw.slice(3).replace(/O/g,'0');
+  let raw = match[0].slice(0, 15); // 3 + 12
 
-      const req = prefix + numbers;
+  let prefix = raw.slice(0,3);
 
-      const input = document.getElementById("ocr-manual-input");
-      if(input) input.value = req;
+  let numbers = raw
+    .slice(3)
+    .replace(/O/g,'0')
+    .replace(/I/g,'1')
+    .replace(/S/g,'5');
 
-      log('FIXED: ' + req);
+  const req = prefix + numbers;
 
-    }else{
-      log('NOT FOUND');
-    }
+  const input = document.getElementById("ocr-manual-input");
+  if(input) input.value = req;
+
+  log('FIXED: ' + req);
+
+  }else{
+  log('NOT FOUND');
+  }
 
   }catch(e){
     log('OCR ERROR: ' + e);
