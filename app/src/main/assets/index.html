@@ -1903,6 +1903,25 @@ async function recognizeRequest(canvas){
       log('WORKER INIT DONE');
     }
 
+    // 🔥 обработка изображения
+const ctx = canvas.getContext('2d');
+const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+const d = img.data;
+
+for (let i = 0; i < d.length; i += 4) {
+  const gray = (d[i] + d[i+1] + d[i+2]) / 3;
+  const val = gray > 140 ? 255 : 0;
+
+  d[i] = val;
+  d[i+1] = val;
+  d[i+2] = val;
+}
+
+ctx.putImageData(img, 0, 0);
+
+// 👉 теперь OCR
+const { data } = await ocrWorker.recognize(canvas);
+
     const { data } = await ocrWorker.recognize(canvas);
 
     log('OCR DONE');
