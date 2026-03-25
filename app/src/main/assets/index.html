@@ -1289,6 +1289,16 @@ function beep() {
 }
 
 function onScan(code) {
+  // 👉 фильтр КЕ
+let clean = code.replace(/[^0-9]/g,'');
+
+if(!(clean.length === 13 || clean.length === 4)){
+  log('KE INVALID: ' + clean);
+  return;
+}
+
+// 👉 заменяем исходное значение
+code = clean;
   if (cooldown||!code) return;
   cooldown=true; setTimeout(()=>cooldown=false,2000);
   if (vibrationEnabled && navigator.vibrate) navigator.vibrate(60);
