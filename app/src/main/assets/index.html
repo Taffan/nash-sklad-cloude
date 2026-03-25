@@ -2097,8 +2097,10 @@ async function scanOCRFrame(){
 
 
 
-  function log(msg){
- // console.log(msg);
+  const DEBUG = false;
+
+function log(msg){
+  if(!DEBUG) return;
 
   let el = document.getElementById('debug-log');
   if(!el){
