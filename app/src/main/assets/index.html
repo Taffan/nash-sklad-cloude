@@ -1631,10 +1631,38 @@ function sendByEmail() {
   const body = encodeURIComponent(lines.join('\n'));
   const subjectDecoded = decodeURIComponent(subject);
   const bodyDecoded = decodeURIComponent(body);
-  if (window.Android && Android.sendEmail) {
-    // Нативный Android — открывает почтовый клиент через Intent
-    Android.sendEmail(subjectDecoded, bodyDecoded);
-  } else {
+  if (window.Android && Android.sendEmailWithFile) {
+
+  const wb = XLSX.utils.book_new();
+
+  const data = records.map(r => ({
+    КЕ: r.barcode,
+    Модель: r.model || '',
+    Количество: r.qty,
+    Состояние: r.status === 'repair' ? 'В ремонт' : 'В резерв',
+    ФИО: r.fio || '',
+    Откуда: r.from || '',
+    Куда: r.to || '',
+    Дата: r.date || '',
+    Заявка: r.req || ''
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, "Отчёт");
+
+  const wbout = XLSX.write(wb, {
+    bookType: 'xlsx',
+    type: 'base64'
+  });
+
+  Android.sendEmailWithFile(
+    wbout,
+    "report.xlsx",
+    subjectDecoded,
+    bodyDecoded
+  );
+
+} else {
     try {
       window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
     } catch(e) {
