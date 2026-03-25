@@ -37,6 +37,40 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
+public void sendEmailWithFile(String base64, String filename, String subject, String body) {
+    try {
+        byte[] data = Base64.decode(base64, Base64.DEFAULT);
+
+        File file = new File(activity.getCacheDir(), filename);
+        FileOutputStream fos = new FileOutputStream(file);
+        fos.write(data);
+        fos.close();
+
+        Uri uri = FileProvider.getUriForFile(
+                activity,
+                activity.getPackageName() + ".provider",
+                file
+        );
+
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+        intent.putExtra(Intent.EXTRA_SUBJECT, subject);
+        intent.putExtra(Intent.EXTRA_TEXT, body);
+        intent.putExtra(Intent.EXTRA_STREAM, uri);
+
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        activity.startActivity(Intent.createChooser(intent, "Отправить отчёт"));
+
+    } catch (Exception e) {
+        Log.e(TAG, "Ошибка email с файлом", e);
+        Toast.makeText(activity, "Ошибка отправки", Toast.LENGTH_LONG).show();
+    }
+}
+
+        
+        @JavascriptInterface
         public void sendEmail(String subject, String body) {
             try {
                 Intent intent = new Intent(Intent.ACTION_SEND);
