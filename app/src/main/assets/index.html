@@ -15,6 +15,58 @@
 <script src="xlsx.full.min.js">
 
 
+
+// -- Голосовой ввод (нативный Android SpeechRecognizer) --
+(function() {
+  var _active = null;
+
+  window.voiceInput = function(fieldId, memKey) {
+    if (!window.Android || typeof Android.startVoice !== 'function') {
+      toast('\u26a0 \u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0439 \u0432\u0432\u043e\u0434 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d', 'err');
+      return;
+    }
+    if (_active === fieldId) {
+      Android.stopVoice();
+      _btn(fieldId, false);
+      _active = null;
+      return;
+    }
+    if (_active) { Android.stopVoice(); _btn(_active, false); }
+    _active = fieldId;
+    _btn(fieldId, true);
+    Android.startVoice(fieldId, memKey || '');
+  };
+
+  window.onVoiceReady  = function(fieldId, _v) {};
+
+  window.onVoiceResult = function(fieldId, text) {
+    _btn(fieldId, false); _active = null;
+    var inp = document.getElementById(fieldId);
+    if (inp) {
+      inp.value = text;
+      var key = fieldId.replace('f-', '');
+      try { onMemInput(inp, key); } catch(e) {}
+    }
+    toast('\ud83c\udfa4 ' + text, 'ok');
+  };
+
+  window.onVoiceError = function(fieldId, err) {
+    _btn(fieldId, false); _active = null;
+    var msgs = {
+      'no-speech': '\u0420\u0435\u0447\u044c \u043d\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d\u0430',
+      'timeout':   '\u0412\u0440\u0435\u043c\u044f \u0432\u044b\u0448\u043b\u043e',
+      'permission':'\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443',
+      'network':   '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438'
+    };
+    toast('\u26a0 ' + (msgs[err] || err), 'err');
+  };
+
+  function _btn(fieldId, on) {
+    var b = document.getElementById('vbtn-' + fieldId.replace('f-', ''));
+    if (b) { if (on) b.classList.add('vbtn-on'); else b.classList.remove('vbtn-on'); }
+  }
+})();
+
 </script>
 <script src="zxing-library-0.19.1.umd.min.js"></script>
 <script src="tesseract.min.js"></script>
@@ -536,6 +588,22 @@ body {
 .flash { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 998; transition: opacity 0.08s; }
 .flash.on { opacity: 0.25; }
 
+
+/* -- Голосовой ввод -- */
+.vbtn {
+  flex-shrink:0; width:32px; height:32px;
+  border:none; border-radius:50%;
+  background:var(--surface2); color:var(--text2);
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .15s,color .15s,transform .1s;
+  -webkit-tap-highlight-color:transparent;
+}
+.vbtn:active { transform:scale(.9); }
+.vbtn.vbtn-on { background:var(--accent); color:#fff; animation:vbtn-p .7s ease-in-out infinite; }
+@keyframes vbtn-p {
+  0%,100%{box-shadow:0 0 0 0 rgba(204,31,31,.4)}
+  50%{box-shadow:0 0 0 6px rgba(204,31,31,0)}
+}
 </style>
 </head>
 <body>
@@ -646,7 +714,7 @@ body {
             <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></div>
             <div class="fc">
               <div class="fl">Модель / Наименование</div>
-              <input class="finp" id="f-model" type="text" placeholder="Введите модель..." autocomplete="off" oninput="onMemInput(this,'model')" onfocus="onMemInput(this,'model')" onkeydown="onMemKey(event,'model')" onblur="setTimeout(()=>hideMemList('model'),200)">
+              <div style="display:flex;align-items:center;gap:6px;"><input class="finp" style="flex:1;" id="f-model" type="text" placeholder="Введите модель..." autocomplete="off" oninput="onMemInput(this,'model')" onfocus="onMemInput(this,'model')" onkeydown="onMemKey(event,'model')" onblur="setTimeout(()=>hideMemList('model'),200)"><button type="button" class="vbtn" id="vbtn-model" onclick="voiceInput('f-model','model')" title="Голос"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6"/></svg></button></div>
               <div class="fio-list" id="mem-list-model" style="display:none"></div>
             </div>
           </div>
@@ -684,7 +752,7 @@ body {
             <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
             <div class="fc">
               <div class="fl">Откуда</div>
-              <input class="finp" id="f-from" type="text" placeholder="Введите источник..." autocomplete="off" oninput="onMemInput(this,'from')" onfocus="onMemInput(this,'from')" onkeydown="onMemKey(event,'from')" onblur="setTimeout(()=>hideMemList('from'),200)">
+              <div style="display:flex;align-items:center;gap:6px;"><input class="finp" style="flex:1;" id="f-from" type="text" placeholder="Введите источник..." autocomplete="off" oninput="onMemInput(this,'from')" onfocus="onMemInput(this,'from')" onkeydown="onMemKey(event,'from')" onblur="setTimeout(()=>hideMemList('from'),200)"><button type="button" class="vbtn" id="vbtn-from" onclick="voiceInput('f-from','from')" title="Голос"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6"/></svg></button></div>
               <div class="fio-list" id="mem-list-from" style="display:none"></div>
             </div>
           </div>
@@ -693,7 +761,7 @@ body {
             <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
             <div class="fc">
               <div class="fl">Куда</div>
-              <input class="finp" id="f-to" type="text" placeholder="Введите назначение..." autocomplete="off" oninput="onMemInput(this,'to')" onfocus="onMemInput(this,'to')" onkeydown="onMemKey(event,'to')" onblur="setTimeout(()=>hideMemList('to'),200)">
+              <div style="display:flex;align-items:center;gap:6px;"><input class="finp" style="flex:1;" id="f-to" type="text" placeholder="Введите назначение..." autocomplete="off" oninput="onMemInput(this,'to')" onfocus="onMemInput(this,'to')" onkeydown="onMemKey(event,'to')" onblur="setTimeout(()=>hideMemList('to'),200)"><button type="button" class="vbtn" id="vbtn-to" onclick="voiceInput('f-to','to')" title="Голос"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10a7 7 0 0014 0M12 19v3M9 22h6"/></svg></button></div>
               <div class="fio-list" id="mem-list-to" style="display:none"></div>
             </div>
           </div>
@@ -1304,16 +1372,18 @@ code = clean;
 }
 
 function applyManualLive() {
-  const v = document.getElementById('manual-in').value.trim();
-  if (v) {
-    curBC = v;
-    const d = document.getElementById('bc-disp');
-    d.textContent = v;
-    d.className = 'bch bch-active';
-    document.getElementById('bc-tap').textContent = 'Нажмите для смены';
+  var raw = document.getElementById('manual-in').value.trim();
+  var clean = raw.replace(/[^0-9]/g,'');
+  var valid = (clean.length === 4 || clean.length === 13);
+  var d = document.getElementById('bc-disp');
+  if (raw.length > 0) {
+    d.textContent = clean || raw;
+    d.className = valid ? 'bcv' : 'bch bch-active';
+    document.getElementById('bc-tap').textContent = valid
+      ? 'Нажмите для смены' : 'нужно 4 или 13 цифр';
+    curBC = valid ? clean : '';
   } else {
     curBC = '';
-    const d = document.getElementById('bc-disp');
     d.textContent = 'Наведите камеру или введите вручную';
     d.className = 'bch';
     document.getElementById('bc-tap').textContent = 'Нажмите для ручного ввода';
@@ -1334,8 +1404,14 @@ function toggleManual() {
 }
 
 function applyManual() {
-  const v=document.getElementById('manual-in').value.trim();
-  if (v) { setBC(v); document.getElementById('manual-row').style.display='none'; }
+  var raw = document.getElementById('manual-in').value.trim();
+  var clean = raw.replace(/[^0-9]/g,'');
+  if (clean.length === 4 || clean.length === 13) {
+    setBC(clean);
+    document.getElementById('manual-row').style.display='none';
+  } else if (raw.length > 0) {
+    toast('⚠ КЕ: 4 или 13 цифр', 'err');
+  }
 }
 
 function addRecord() {
