@@ -14,56 +14,6 @@
 <title>Наш Склад</title>
 <script src="xlsx.full.min.js">
 
-// -- Голосовой ввод (нативный Android SpeechRecognizer) --
-(function() {
-  var _active = null;
-
-  window.voiceInput = function(fieldId, memKey) {
-    if (!window.Android || typeof Android.startVoice !== 'function') {
-      toast('\u26a0 \u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0439 \u0432\u0432\u043e\u0434 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d', 'err');
-      return;
-    }
-    if (_active === fieldId) {
-      Android.stopVoice();
-      _btn(fieldId, false);
-      _active = null;
-      return;
-    }
-    if (_active) { Android.stopVoice(); _btn(_active, false); }
-    _active = fieldId;
-    _btn(fieldId, true);
-    Android.startVoice(fieldId, memKey || '');
-  };
-
-  window.onVoiceReady  = function(fieldId, _v) {};
-
-  window.onVoiceResult = function(fieldId, text) {
-    _btn(fieldId, false); _active = null;
-    var inp = document.getElementById(fieldId);
-    if (inp) {
-      inp.value = text;
-      var key = fieldId.replace('f-', '');
-      try { onMemInput(inp, key); } catch(e) {}
-    }
-    toast('\ud83c\udfa4 ' + text, 'ok');
-  };
-
-  window.onVoiceError = function(fieldId, err) {
-    _btn(fieldId, false); _active = null;
-    var msgs = {
-      'no-speech': '\u0420\u0435\u0447\u044c \u043d\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d\u0430',
-      'timeout':   '\u0412\u0440\u0435\u043c\u044f \u0432\u044b\u0448\u043b\u043e',
-      'permission':'\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443',
-      'network':   '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438'
-    };
-    toast('\u26a0 ' + (msgs[err] || err), 'err');
-  };
-
-  function _btn(fieldId, on) {
-    var b = document.getElementById('vbtn-' + fieldId.replace('f-', ''));
-    if (b) { if (on) b.classList.add('vbtn-on'); else b.classList.remove('vbtn-on'); }
-  }
-})();
 
 </script>
 <script src="zxing-library-0.19.1.umd.min.js"></script>
@@ -842,13 +792,6 @@ body {
             </svg>
             Excel
           </button>
-          <button class="btn-xl" onclick="sendByEmail()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
-            </svg>
-            Почта
-          </button>
 
         </div>
       </div>
@@ -1069,6 +1012,7 @@ try {
 isDark = localStorage.getItem('theme') === 'dark';
 vibrationEnabled = localStorage.getItem('vibration') !== 'false';
 soundEnabled = localStorage.getItem('sound') !== 'false';
+} catch(e) {}
 
 function switchTab(t) {
   ['scan','rec','settings'].forEach(id => {
@@ -2079,8 +2023,60 @@ function log(msg){
   el.innerHTML += msg + '<br>';
 }
 
-} catch(e) { console.error('Init error:', e); }
 
+</script>
+<script>
+
+// -- Голосовой ввод (нативный Android SpeechRecognizer) --
+(function() {
+  var _active = null;
+
+  window.voiceInput = function(fieldId, memKey) {
+    if (!window.Android || typeof Android.startVoice !== 'function') {
+      toast('\u26a0 \u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0439 \u0432\u0432\u043e\u0434 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d', 'err');
+      return;
+    }
+    if (_active === fieldId) {
+      Android.stopVoice();
+      _btn(fieldId, false);
+      _active = null;
+      return;
+    }
+    if (_active) { Android.stopVoice(); _btn(_active, false); }
+    _active = fieldId;
+    _btn(fieldId, true);
+    Android.startVoice(fieldId, memKey || '');
+  };
+
+  window.onVoiceReady  = function(fieldId, _v) {};
+
+  window.onVoiceResult = function(fieldId, text) {
+    _btn(fieldId, false); _active = null;
+    var inp = document.getElementById(fieldId);
+    if (inp) {
+      inp.value = text;
+      var key = fieldId.replace('f-', '');
+      try { onMemInput(inp, key); } catch(e) {}
+    }
+    toast('\ud83c\udfa4 ' + text, 'ok');
+  };
+
+  window.onVoiceError = function(fieldId, err) {
+    _btn(fieldId, false); _active = null;
+    var msgs = {
+      'no-speech': '\u0420\u0435\u0447\u044c \u043d\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d\u0430',
+      'timeout':   '\u0412\u0440\u0435\u043c\u044f \u0432\u044b\u0448\u043b\u043e',
+      'permission':'\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443',
+      'network':   '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438'
+    };
+    toast('\u26a0 ' + (msgs[err] || err), 'err');
+  };
+
+  function _btn(fieldId, on) {
+    var b = document.getElementById('vbtn-' + fieldId.replace('f-', ''));
+    if (b) { if (on) b.classList.add('vbtn-on'); else b.classList.remove('vbtn-on'); }
+  }
+})();
 </script>
 </body>
 </html>
