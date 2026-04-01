@@ -14,8 +14,6 @@
 <title>Наш Склад</title>
 <script src="xlsx.full.min.js">
 
-
-
 // -- Голосовой ввод (нативный Android SpeechRecognizer) --
 (function() {
   var _active = null;
@@ -72,8 +70,6 @@
 <script src="tesseract.min.js"></script>
 
 <style>
-
-
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -853,46 +849,7 @@ body {
             </svg>
             Почта
           </button>
-          <button class="btn-xl" onclick="openNcModal()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-            </svg>
-            Nextcloud
-          </button>
-        </div>
-      </div>
 
-      <!-- Nextcloud modal -->
-      <div id="nc-modal" style="display:none;position:fixed;inset:0;z-index:998;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;padding:16px;">
-        <div style="background:var(--surface);border-radius:16px;padding:20px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-          <div style="font-size:15px;font-weight:700;margin-bottom:14px;color:var(--text);">⚙️ Настройки Nextcloud</div>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <div style="font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Адрес сервера</div>
-              <input class="finp" id="nc-url" type="url" placeholder="https://cloud.example.com" style="margin:0;">
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Логин</div>
-              <input class="finp" id="nc-user" type="text" placeholder="username" style="margin:0;">
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">Пароль / App Password</div>
-              <input class="finp" id="nc-pass" type="password" placeholder="••••••••" style="margin:0;">
-            </div>
-            <div>
-              <div style="font-size:11px;color:var(--text2);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.5px;">ID таблицы</div>
-              <input class="finp" id="nc-tbl-id" type="number" placeholder="Например: 5" style="margin:0;">
-            </div>
-            <div style="font-size:11px;color:var(--text3);background:var(--surface2);border-radius:8px;padding:8px 10px;line-height:1.5;">
-              💡 App Password: Настройки → Безопасность → Создать новый пароль приложения.<br>
-              ID таблицы: откройте таблицу в Nextcloud Tables, в адресной строке будет <b>/tables/5</b> — вот этот номер.<br>Нужны столбцы: Раздел · КЕ · Модель · Кол-во · Состояние · ФИО · Откуда · Куда · Дата · Заявка
-            </div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:16px;">
-            <button onclick="saveNcSettings()" style="flex:1;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Сохранить и отправить</button>
-            <button onclick="closeNcModal()" style="padding:11px 16px;border-radius:10px;border:none;background:var(--surface2);color:var(--text);font-size:14px;cursor:pointer;">Отмена</button>
-          </div>
-          <div id="nc-status" style="margin-top:10px;font-size:12px;color:var(--text2);text-align:center;min-height:16px;"></div>
         </div>
       </div>
       <div class="rec-list" id="rec-list"></div>
@@ -1029,7 +986,7 @@ body {
 
         <div style="text-align:center;">
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">Наш Склад</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Складской учёт с поддержкой штрих-кодов, экспорта в Excel и синхронизации с Nextcloud.</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Складской учёт с поддержкой штрих-кодов, экспорта в Excel.</div>
           <!-- Надпись на клингонском -->
           <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;">nuqDaq 'oH puchpa''e'</div>
           <div style="font-size:10px;color:var(--text3);margin-top:3px;">— lIngon Hol — «qa'vIn chu' lo'lu'bogh AI vIlo'ta'»</div>
@@ -1083,10 +1040,6 @@ body {
   </div>
 </div>
 
-
-
-
-
 <script>
   
 const TESSERACT_CONFIG = {
@@ -1101,7 +1054,6 @@ let records = [], curBC = '', camActive = false, mStream = null;
 let sTimer = null, cooldown = false, section = 'income', curStatus = 'repair';
 let fioMemory = [];
 let ocrStream = null;
-let ncSettings = {};
 let isDark = false;
 let vibrationEnabled = true;
 let soundEnabled = true;
@@ -1113,7 +1065,7 @@ const memories = { model: [], from: [], to: [] };
 try { records = JSON.parse(localStorage.getItem('bc_v3') || '[]'); } catch(e) {}
 try { fioMemory = JSON.parse(localStorage.getItem('fio_mem') || '[]'); } catch(e) {}
 for (const k in MEM_KEYS) { try { memories[k] = JSON.parse(localStorage.getItem(MEM_KEYS[k]) || '[]'); } catch(e) {} }
-try { ncSettings = JSON.parse(localStorage.getItem('nc_settings') || '{}'); } catch(e) {}
+try {
 isDark = localStorage.getItem('theme') === 'dark';
 vibrationEnabled = localStorage.getItem('vibration') !== 'false';
 soundEnabled = localStorage.getItem('sound') !== 'false';
@@ -1582,7 +1534,12 @@ function exportXlsx() {
     }
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
     if (window.Android && typeof Android.shareXlsx === 'function') {
-      Android.shareXlsx(wbout, fname);
+      try {
+        Android.shareXlsx(wbout, fname);
+        toast('✓ Отправка файла...', 'ok');
+      } catch(e) {
+        toast('⚠ Ошибка: ' + e.message, 'err');
+      }
     } else {
       // Браузер fallback
       const a = document.createElement('a');
@@ -1594,92 +1551,6 @@ function exportXlsx() {
   } catch(e) {
     toast('⚠ ' + e.message, 'err');
     exportCsv();
-  }
-}
-
-function openNcModal() {
-  if (!records.length) { toast('⚠ Нет данных', 'err'); return; }
-  document.getElementById('nc-modal').style.display = 'flex';
-  if (ncSettings.url) document.getElementById('nc-url').value = ncSettings.url;
-  if (ncSettings.user) document.getElementById('nc-user').value = ncSettings.user;
-  if (ncSettings.pass) document.getElementById('nc-pass').value = ncSettings.pass;
-  if (ncSettings.tblId) document.getElementById('nc-tbl-id').value = ncSettings.tblId;
-  document.getElementById('nc-status').textContent = '';
-}
-
-function closeNcModal() {
-  document.getElementById('nc-modal').style.display = 'none';
-}
-
-async function saveNcSettings() {
-  const url = document.getElementById('nc-url').value.trim().replace(/\/+$/, '');
-  const user = document.getElementById('nc-user').value.trim();
-  const pass = document.getElementById('nc-pass').value;
-  const tblId = document.getElementById('nc-tbl-id').value.trim();
-
-  if (!url || !user || !pass) {
-    document.getElementById('nc-status').textContent = '⚠ Заполните адрес, логин и пароль';
-    return;
-  }
-  if (!tblId) {
-    document.getElementById('nc-status').textContent = '⚠ Введите ID таблицы';
-    return;
-  }
-
-  ncSettings = { url, user, pass, tblId };
-  localStorage.setItem('nc_settings', JSON.stringify(ncSettings));
-
-  await sendToNextcloud(url, user, pass, tblId);
-}
-
-async function sendToNextcloud(url, user, pass, tblId) {
-  const status = document.getElementById('nc-status');
-  const auth = btoa(user + ':' + pass);
-  const headers = {
-    'Authorization': 'Basic ' + auth,
-    'Content-Type': 'application/json',
-    'OCS-APIREQUEST': 'true'
-  };
-
-  // Все записи в одну таблицу
-  // Столбцы: Раздел, КЕ, Модель, Кол-во, Состояние, ФИО, Откуда, Куда, Дата, Заявка
-  let sent = 0, errors = 0;
-  status.textContent = `⏳ Отправка ${records.length} строк...`;
-
-  for (const r of records) {
-    try {
-      const row = [
-        { value: r.section === 'income' ? 'Поступление' : 'Расход' },
-        { value: r.barcode || '' },
-        { value: r.model || '' },
-        { value: String(r.qty) },
-        { value: r.status === 'repair' ? 'В ремонт' : 'В резерв' },
-        { value: r.fio || '' },
-        { value: r.from || '' },
-        { value: r.to || '' },
-        { value: fmtD(r.date) },
-        { value: r.req || '' }
-      ];
-      const res = await fetch(`${url}/index.php/apps/tables/api/1/tables/${tblId}/rows`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ data: row })
-      });
-      if (res.ok) sent++; else errors++;
-    } catch(e) { errors++; }
-  }
-
-  if (errors === 0 && sent > 0) {
-    status.style.color = 'green';
-    status.textContent = `✓ Отправлено ${sent} строк`;
-    toast('✓ Данные в Nextcloud', 'ok');
-    setTimeout(closeNcModal, 1500);
-  } else if (sent > 0) {
-    status.style.color = 'orange';
-    status.textContent = `⚠ Отправлено: ${sent}, ошибок: ${errors}`;
-  } else {
-    status.style.color = 'red';
-    status.textContent = '✕ Ошибка подключения. Проверьте адрес и пароль';
   }
 }
 
@@ -2183,8 +2054,6 @@ async function scanOCRFrame(){
   
 // ── Log ───────────────────────────────────────────
 
-
-
   const DEBUG = false;
 
 function log(msg){
@@ -2210,7 +2079,8 @@ function log(msg){
   el.innerHTML += msg + '<br>';
 }
 
-  
+} catch(e) { console.error('Init error:', e); }
+
 </script>
 </body>
 </html>
