@@ -1820,9 +1820,9 @@ async function initOcrWorker() {
 
   try {
     ocrWorker = await Tesseract.createWorker({
-      workerPath: 'tesseract.worker.min.js',
-      corePath: 'tesseract-core.wasm.js',
-      langPath: './',
+      workerPath: 'file:///android_asset/tesseract.worker.min.js',
+      corePath: 'file:///android_asset/tesseract-core.wasm.js',
+      langPath: 'file:///android_asset/',
       workerBlobURL: false
     });
     await ocrWorker.loadLanguage('eng');
