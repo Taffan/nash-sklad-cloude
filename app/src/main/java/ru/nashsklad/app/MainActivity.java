@@ -84,17 +84,23 @@ public class MainActivity extends AppCompatActivity {
         public void shareXlsx(String base64, String filename) {
             try {
                 byte[] data = Base64.decode(base64, Base64.DEFAULT);
-                File file = new File(getCacheDir(), filename);
+                // Пишем в filesDir (доступен FileProvider без WRITE_EXTERNAL_STORAGE)
+                File dir = new File(getFilesDir(), "exports");
+                if (!dir.exists()) dir.mkdirs();
+                File file = new File(dir, filename);
                 FileOutputStream fos = new FileOutputStream(file);
                 fos.write(data); fos.close();
+
                 Uri uri = FileProvider.getUriForFile(MainActivity.this,
                         getPackageName() + ".provider", file);
+
                 Intent i = new Intent(Intent.ACTION_SEND);
-                i.setType("*/*");
+                i.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
                 i.putExtra(Intent.EXTRA_STREAM, uri);
                 i.putExtra(Intent.EXTRA_SUBJECT, "Отчёт Наш Склад");
+                i.putExtra(Intent.EXTRA_TEXT, filename);
                 i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                startActivity(Intent.createChooser(i, "Открыть или отправить"));
+                startActivity(Intent.createChooser(i, "Сохранить или отправить файл"));
             } catch (Exception e) {
                 Log.e(TAG, "shareXlsx", e);
                 uiHandler.post(() -> Toast.makeText(MainActivity.this,
