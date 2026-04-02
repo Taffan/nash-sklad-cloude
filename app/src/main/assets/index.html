@@ -12,14 +12,13 @@
 <meta http-equiv="Permissions-Policy" content="camera=*">
 <link rel="manifest" href="manifest.json">
 <title>Наш Склад</title>
-<script src="xlsx.full.min.js">
-
-
-</script>
+<script src="xlsx.full.min.js"></script>
 <script src="zxing-library-0.19.1.umd.min.js"></script>
 <script src="tesseract.min.js"></script>
 
 <style>
+
+
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -286,7 +285,7 @@ body {
 .cam-wrap {
   position: relative;
   background: #000;
-  height: 120px; width: 100%;
+  height: 70px; width: 100%;
   max-width: 100%;
   border-radius: 6px; overflow: hidden;
 }
@@ -308,7 +307,7 @@ body {
 }
 
 .sf {
-  width: 220px; height: 80px; position: relative;
+  width: 60px; height: 35px; position: relative;
 }
 
 .sf::before {
@@ -316,13 +315,19 @@ body {
   box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
 }
 
-.sfc { position: absolute; width: 24px; height: 24px; border-color: #fff; border-style: solid; }
-.sfc.tl { top:0; left:0;    border-width: 3px 0 0 3px; }
-.sfc.tr { top:0; right:0;   border-width: 3px 3px 0 0; }
-.sfc.bl { bottom:0; left:0; border-width: 0 0 3px 3px; }
-.sfc.br { bottom:0; right:0;border-width: 0 3px 3px 0; }
+.sfc { position: absolute; width: 12px; height: 12px; border-color: #fff; border-style: solid; }
+.sfc.tl { top:0; left:0;    border-width: 2px 0 0 2px; }
+.sfc.tr { top:0; right:0;   border-width: 2px 2px 0 0; }
+.sfc.bl { bottom:0; left:0; border-width: 0 0 2px 2px; }
+.sfc.br { bottom:0; right:0;border-width: 0 2px 2px 0; }
 
-.sl { display: none; }
+.sl {
+  position: absolute; left:0; right:0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: sl 1.8s ease-in-out infinite;
+  box-shadow: 0 0 4px var(--accent);
+}
+@keyframes sl { 0%,100%{top:2px} 50%{top:calc(100% - 4px)} }
 
 /* Camera button */
 .cam-btn-row {
@@ -535,21 +540,11 @@ body {
 .flash.on { opacity: 0.25; }
 
 
-/* -- Голосовой ввод -- */
-.vbtn {
-  flex-shrink:0; width:32px; height:32px;
-  border:none; border-radius:50%;
-  background:var(--surface2); color:var(--text2);
-  cursor:pointer; display:flex; align-items:center; justify-content:center;
-  transition:background .15s,color .15s,transform .1s;
-  -webkit-tap-highlight-color:transparent;
-}
-.vbtn:active { transform:scale(.9); }
-.vbtn.vbtn-on { background:var(--accent); color:#fff; animation:vbtn-p .7s ease-in-out infinite; }
-@keyframes vbtn-p {
-  0%,100%{box-shadow:0 0 0 0 rgba(204,31,31,.4)}
-  50%{box-shadow:0 0 0 6px rgba(204,31,31,0)}
-}
+/* -- vbtn -- */
+.vbtn{flex-shrink:0;width:32px;height:32px;border:none;border-radius:50%;background:var(--surface2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .1s;-webkit-tap-highlight-color:transparent;}
+.vbtn:active{transform:scale(.9);}
+.vbtn.vbtn-on{background:var(--accent);color:#fff;animation:vbtn-p .7s ease-in-out infinite;}
+@keyframes vbtn-p{0%,100%{box-shadow:0 0 0 0 rgba(204,31,31,.4)}50%{box-shadow:0 0 0 6px rgba(204,31,31,0)}}
 </style>
 </head>
 <body>
@@ -599,6 +594,7 @@ body {
             <div class="sf">
               <div class="sfc tl"></div><div class="sfc tr"></div>
               <div class="sfc bl"></div><div class="sfc br"></div>
+              <div class="sl"></div>
             </div>
           </div>
         </div>
@@ -723,7 +719,7 @@ body {
           <div class="fr" id="row-req" style="display:none;">
             <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
             <div class="fc">
-              <div style="display:flex;align-items:center;justify-content:space-between;"><div class="fl">Номер заявки</div><div id="ocr-worker-status" style="font-size:10px;color:var(--text3);cursor:pointer;" onclick="ocrStatusClick()" title="Нажмите для повторной загрузки при ошибке">OCR загружается...</div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;"><div class="fl" style="margin-bottom:0;">Номер заявки</div><div id="ocr-worker-status" onclick="if(!ocrWorkerReady&&!ocrWorkerLoading)initOcrWorker()" style="font-size:10px;color:var(--text3);cursor:pointer;">OCR загружается...</div></div>
               <div style="display:flex;gap:6px;align-items:center;">
                 <input class="finp" id="f-req" type="text" placeholder="Например: INC/REQ-001" style="flex:1;margin:0;">
                 <button type="button" id="ocr-btn" onclick="startOCR()" title="Распознать с камеры" style="flex-shrink:0;width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;">
@@ -792,7 +788,6 @@ body {
             </svg>
             Excel
           </button>
-
         </div>
       </div>
       <div class="rec-list" id="rec-list"></div>
@@ -929,7 +924,7 @@ body {
 
         <div style="text-align:center;">
           <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px;">Наш Склад</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Складской учёт с поддержкой штрих-кодов, экспорта в Excel.</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Складской учёт с поддержкой штрих-кодов, экспорта в Excel и синхронизации с Nextcloud.</div>
           <!-- Надпись на клингонском -->
           <div style="font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1px;">nuqDaq 'oH puchpa''e'</div>
           <div style="font-size:10px;color:var(--text3);margin-top:3px;">— lIngon Hol — «qa'vIn chu' lo'lu'bogh AI vIlo'ta'»</div>
@@ -983,10 +978,14 @@ body {
   </div>
 </div>
 
+
+
+
+
 <script>
   
 const TESSERACT_CONFIG = {
-  workerPath: 'tesseract.worker.min.js',
+  workerPath: 'worker.min.js',
   corePath: 'tesseract-core.wasm.js',
   langPath: './'
 };
@@ -997,6 +996,7 @@ let records = [], curBC = '', camActive = false, mStream = null;
 let sTimer = null, cooldown = false, section = 'income', curStatus = 'repair';
 let fioMemory = [];
 let ocrStream = null;
+let ncSettings = {};
 let isDark = false;
 let vibrationEnabled = true;
 let soundEnabled = true;
@@ -1008,11 +1008,10 @@ const memories = { model: [], from: [], to: [] };
 try { records = JSON.parse(localStorage.getItem('bc_v3') || '[]'); } catch(e) {}
 try { fioMemory = JSON.parse(localStorage.getItem('fio_mem') || '[]'); } catch(e) {}
 for (const k in MEM_KEYS) { try { memories[k] = JSON.parse(localStorage.getItem(MEM_KEYS[k]) || '[]'); } catch(e) {} }
-try {
+try { ncSettings = JSON.parse(localStorage.getItem('nc_settings') || '{}'); } catch(e) {}
 isDark = localStorage.getItem('theme') === 'dark';
 vibrationEnabled = localStorage.getItem('vibration') !== 'false';
 soundEnabled = localStorage.getItem('sound') !== 'false';
-} catch(e) {}
 
 function switchTab(t) {
   ['scan','rec','settings'].forEach(id => {
@@ -1268,18 +1267,16 @@ code = clean;
 }
 
 function applyManualLive() {
-  var raw = document.getElementById('manual-in').value.trim();
-  var clean = raw.replace(/[^0-9]/g,'');
-  var valid = (clean.length === 4 || clean.length === 13);
-  var d = document.getElementById('bc-disp');
-  if (raw.length > 0) {
-    d.textContent = clean || raw;
-    d.className = valid ? 'bcv' : 'bch bch-active';
-    document.getElementById('bc-tap').textContent = valid
-      ? 'Нажмите для смены' : 'нужно 4 или 13 цифр';
-    curBC = valid ? clean : '';
+  const v = document.getElementById('manual-in').value.trim();
+  if (v) {
+    curBC = v;
+    const d = document.getElementById('bc-disp');
+    d.textContent = v;
+    d.className = 'bch bch-active';
+    document.getElementById('bc-tap').textContent = 'Нажмите для смены';
   } else {
     curBC = '';
+    const d = document.getElementById('bc-disp');
     d.textContent = 'Наведите камеру или введите вручную';
     d.className = 'bch';
     document.getElementById('bc-tap').textContent = 'Нажмите для ручного ввода';
@@ -1300,14 +1297,8 @@ function toggleManual() {
 }
 
 function applyManual() {
-  var raw = document.getElementById('manual-in').value.trim();
-  var clean = raw.replace(/[^0-9]/g,'');
-  if (clean.length === 4 || clean.length === 13) {
-    setBC(clean);
-    document.getElementById('manual-row').style.display='none';
-  } else if (raw.length > 0) {
-    toast('⚠ КЕ: 4 или 13 цифр', 'err');
-  }
+  const v=document.getElementById('manual-in').value.trim();
+  if (v) { setBC(v); document.getElementById('manual-row').style.display='none'; }
 }
 
 function addRecord() {
@@ -1478,12 +1469,8 @@ function exportXlsx() {
     }
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
     if (window.Android && typeof Android.shareXlsx === 'function') {
-      try {
-        Android.shareXlsx(wbout, fname);
-        toast('✓ Отправка файла...', 'ok');
-      } catch(e) {
-        toast('⚠ Ошибка: ' + e.message, 'err');
-      }
+      Android.shareXlsx(wbout, fname);
+      toast('✓ Файл отправлен', 'ok');
     } else {
       // Браузер fallback
       const a = document.createElement('a');
@@ -1495,6 +1482,92 @@ function exportXlsx() {
   } catch(e) {
     toast('⚠ ' + e.message, 'err');
     exportCsv();
+  }
+}
+
+function openNcModal() {
+  if (!records.length) { toast('⚠ Нет данных', 'err'); return; }
+  document.getElementById('nc-modal').style.display = 'flex';
+  if (ncSettings.url) document.getElementById('nc-url').value = ncSettings.url;
+  if (ncSettings.user) document.getElementById('nc-user').value = ncSettings.user;
+  if (ncSettings.pass) document.getElementById('nc-pass').value = ncSettings.pass;
+  if (ncSettings.tblId) document.getElementById('nc-tbl-id').value = ncSettings.tblId;
+  document.getElementById('nc-status').textContent = '';
+}
+
+function closeNcModal() {
+  document.getElementById('nc-modal').style.display = 'none';
+}
+
+async function saveNcSettings() {
+  const url = document.getElementById('nc-url').value.trim().replace(/\/+$/, '');
+  const user = document.getElementById('nc-user').value.trim();
+  const pass = document.getElementById('nc-pass').value;
+  const tblId = document.getElementById('nc-tbl-id').value.trim();
+
+  if (!url || !user || !pass) {
+    document.getElementById('nc-status').textContent = '⚠ Заполните адрес, логин и пароль';
+    return;
+  }
+  if (!tblId) {
+    document.getElementById('nc-status').textContent = '⚠ Введите ID таблицы';
+    return;
+  }
+
+  ncSettings = { url, user, pass, tblId };
+  localStorage.setItem('nc_settings', JSON.stringify(ncSettings));
+
+  await sendToNextcloud(url, user, pass, tblId);
+}
+
+async function sendToNextcloud(url, user, pass, tblId) {
+  const status = document.getElementById('nc-status');
+  const auth = btoa(user + ':' + pass);
+  const headers = {
+    'Authorization': 'Basic ' + auth,
+    'Content-Type': 'application/json',
+    'OCS-APIREQUEST': 'true'
+  };
+
+  // Все записи в одну таблицу
+  // Столбцы: Раздел, КЕ, Модель, Кол-во, Состояние, ФИО, Откуда, Куда, Дата, Заявка
+  let sent = 0, errors = 0;
+  status.textContent = `⏳ Отправка ${records.length} строк...`;
+
+  for (const r of records) {
+    try {
+      const row = [
+        { value: r.section === 'income' ? 'Поступление' : 'Расход' },
+        { value: r.barcode || '' },
+        { value: r.model || '' },
+        { value: String(r.qty) },
+        { value: r.status === 'repair' ? 'В ремонт' : 'В резерв' },
+        { value: r.fio || '' },
+        { value: r.from || '' },
+        { value: r.to || '' },
+        { value: fmtD(r.date) },
+        { value: r.req || '' }
+      ];
+      const res = await fetch(`${url}/index.php/apps/tables/api/1/tables/${tblId}/rows`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ data: row })
+      });
+      if (res.ok) sent++; else errors++;
+    } catch(e) { errors++; }
+  }
+
+  if (errors === 0 && sent > 0) {
+    status.style.color = 'green';
+    status.textContent = `✓ Отправлено ${sent} строк`;
+    toast('✓ Данные в Nextcloud', 'ok');
+    setTimeout(closeNcModal, 1500);
+  } else if (sent > 0) {
+    status.style.color = 'orange';
+    status.textContent = `⚠ Отправлено: ${sent}, ошибок: ${errors}`;
+  } else {
+    status.style.color = 'red';
+    status.textContent = '✕ Ошибка подключения. Проверьте адрес и пароль';
   }
 }
 
@@ -1773,7 +1846,9 @@ document.addEventListener('DOMContentLoaded', function() {
   updateCount();
   const fdate = document.getElementById('f-date');
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
-  setTimeout(() => { initOcrWorker(); }, 1500);
+  setTimeout(async () => {
+    initOcrWorker();
+  }, 1500);
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -1794,140 +1869,92 @@ if ('serviceWorker' in navigator) {
   
 let ocrWorker = null;
 let ocrWorkerReady = false;
-let ocrWorkerLoading = false; // защита от двойного запуска
- 
+let ocrWorkerLoading = false; 
 
 
-// ── Инициализация Tesseract воркера ───────────────────────
-
-function ocrStatusClick() {
-  if (!ocrWorkerReady && !ocrWorkerLoading) {
-    initOcrWorker();
-  }
-}
-
-async function initOcrWorker() {
-  if (ocrWorkerReady) return true;
-  if (ocrWorkerLoading) return false; // уже грузится
-
-  ocrWorkerLoading = true;
-  ocrWorker = null;
-
-  const ws = document.getElementById('ocr-worker-status');
-  const btn = document.getElementById('ocr-btn');
-  if (ws) { ws.textContent = 'OCR загружается...'; ws.style.color = 'var(--text3)'; }
-  if (btn) { btn.style.opacity = '0.5'; btn.title = 'OCR загружается...'; }
-
-  try {
-    ocrWorker = await Tesseract.createWorker({
-      workerPath: 'file:///android_asset/tesseract.worker.min.js',
-      corePath: 'file:///android_asset/tesseract-core.wasm.js',
-      workerBlobURL: false
+function initOcrWorker() {
+  if (ocrWorkerReady) return Promise.resolve(true);
+  if (ocrWorkerLoading) return Promise.resolve(false);
+  ocrWorkerLoading = true; ocrWorker = null;
+  var ws=document.getElementById('ocr-worker-status');
+  var btn=document.getElementById('ocr-btn');
+  if(ws){ws.textContent='OCR загружается...';ws.style.color='var(--text3)';}
+  if(btn)btn.style.opacity='0.5';
+  return Tesseract.createWorker({workerBlobURL:true})
+    .then(function(w){
+      ocrWorker=w;
+      return w.loadLanguage('eng');
+    }).then(function(){return ocrWorker.initialize('eng');})
+    .then(function(){return ocrWorker.setParameters({
+      tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+      tessedit_pageseg_mode:7
+    });})
+    .then(function(){
+      ocrWorkerReady=true;ocrWorkerLoading=false;
+      if(ws){ws.textContent='OCR ✓ готов';ws.style.color='#4caf50';}
+      if(btn)btn.style.opacity='1';
+      toast('✓ OCR готов','ok');
+      return true;
+    }).catch(function(e){
+      ocrWorker=null;ocrWorkerReady=false;ocrWorkerLoading=false;
+      if(ws){ws.textContent='OCR ✗ нажмите для повтора';ws.style.color='#f44336';}
+      if(btn)btn.style.opacity='1';
+      log('OCR INIT ERROR: '+e);
+      return false;
     });
-    await ocrWorker.loadLanguage('eng');
-    await ocrWorker.initialize('eng');
-    await ocrWorker.setParameters({
-      tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-      tessedit_pageseg_mode: 7
-    });
-    ocrWorkerReady = true;
-    ocrWorkerLoading = false;
-    if (ws) { ws.textContent = 'OCR ✓ готов'; ws.style.color = '#4caf50'; }
-    if (btn) { btn.style.opacity = '1'; btn.title = 'Распознать номер заявки'; }
-    toast('✓ OCR готов', 'ok');
-    return true;
-  } catch(e) {
-    ocrWorker = null;
-    ocrWorkerReady = false;
-    ocrWorkerLoading = false;
-    if (ws) { ws.textContent = 'OCR ✗ ошибка'; ws.style.color = '#f44336'; }
-    if (btn) { btn.style.opacity = '1'; btn.title = 'OCR — ошибка загрузки'; }
-    log('OCR INIT ERROR: ' + e);
-    return false;
-  }
 }
 
   async function recognizeRequest(canvas){
-
-  const status = document.getElementById('ocr-status');
-  const scanBtn = document.getElementById('ocr-scan-btn');
-
-  function setStatus(msg, color) {
-    if (status) { status.textContent = msg; status.style.color = color || 'rgba(255,255,255,0.8)'; }
-  }
-
+  var ocrSt=document.getElementById('ocr-status');
+  var scanBtn=document.getElementById('ocr-scan-btn');
+  function setSt(msg,color){if(ocrSt){ocrSt.textContent=msg;ocrSt.style.color=color||'rgba(255,255,255,0.8)';}}
+  if(scanBtn)scanBtn.disabled=true;
   try{
-    if(!canvas){ setStatus('⚠ Нет изображения', '#f90'); return; }
-
-    // Проверка готовности воркера
-    if (!ocrWorkerReady) {
-      if (ocrWorkerLoading) {
-        setStatus('⏳ OCR ещё загружается, подождите...', '#f90');
-        return;
-      }
-      setStatus('⏳ Запуск OCR...', '#fff');
-      if (scanBtn) scanBtn.disabled = true;
-      const ok = await initOcrWorker();
-      if (!ok) {
-        setStatus('✗ Не удалось загрузить OCR', '#f44');
-        toast('⚠ Ошибка загрузки OCR', 'err');
-        return;
-      }
+    if(!canvas){setSt('⚠ Нет кадра','#f90');return;}
+    if(!ocrWorkerReady){
+      if(ocrWorkerLoading){setSt('⏳ OCR загружается...','#fff');return;}
+      setSt('⏳ Запуск OCR...','#fff');
+      var ok=await initOcrWorker();
+      if(!ok){setSt('✕ Ошибка OCR','#f44');return;}
     }
-
-    setStatus('⏳ Распознавание...', '#fff');
-
-    // Grayscale + threshold
-    const ctx = canvas.getContext('2d');
-    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const gray = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114);
-      const val = gray > 140 ? 255 : 0;
-      d[i] = d[i+1] = d[i+2] = val;
+    setSt('⏳ Распознавание...','#fff');
+    var ctx=canvas.getContext('2d');
+    var img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    var d=img.data;
+    for(var i=0;i<d.length;i+=4){
+      var gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+      var val=gray>140?255:0;
+      d[i]=d[i+1]=d[i+2]=val;
     }
-    ctx.putImageData(img, 0, 0);
-
-    const { data } = await ocrWorker.recognize(canvas);
-    let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
-    text = text.replace(/^.*?(INC|REQ)/, '$1');
-
-    const match = text.match(/(INC|REQ)([0-9O]{12})/);
-
+    ctx.putImageData(img,0,0);
+    var result=await ocrWorker.recognize(canvas);
+    var text=result.data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    text=text.replace(/^.*?(INC|REQ)/,'$1');
+    log('TEXT: '+text);
+    var match=text.match(/(INC|REQ)([0-9O]{12})/);
     if(match){
-      const prefix = match[1];
-      const numbers = match[2].replace(/O/g,'0').replace(/I/g,'1').replace(/S/g,'5');
-      const req = prefix + numbers;
-
-      const input = document.getElementById('ocr-manual-input');
-      if(input) {
-        input.value = req;
-        // Триггер валидации
-        const ev = new Event('input'); input.dispatchEvent(ev);
-      }
-
-      setStatus('✓ Найдено: ' + req, '#4caf50');
-      toast('✓ ' + req, 'ok');
-
-      // Автозакрытие через 1.5 сек
-      setTimeout(() => {
-        document.getElementById('f-req').value = req;
+      var req=match[1]+match[2].replace(/O/g,'0').replace(/I/g,'1').replace(/S/g,'5');
+      var inp=document.getElementById('ocr-manual-input');
+      if(inp)inp.value=req;
+      setSt('✓ Найдено: '+req,'#4caf50');
+      toast('✓ '+req,'ok');
+      setTimeout(function(){
+        var fReq=document.getElementById('f-req');
+        if(fReq)fReq.value=req;
         closeOCR();
-      }, 1500);
-
-    } else {
-      const preview = text.slice(0, 30) || '(текст не распознан)';
-      setStatus('✗ Не найдено. Распознано: ' + preview, '#f44');
-      toast('⚠ INC/REQ не найден', 'err');
+      },1200);
+    }else{
+      var preview=text.slice(0,40)||'(текст не распознан)';
+      setSt('✕ Не найдено. Распознано: '+preview,'#f44336');
+      toast('⚠ INC/REQ не найден','err');
     }
-
-  } catch(e) {
-    setStatus('✗ Ошибка: ' + e.message, '#f44');
-    toast('⚠ Ошибка OCR', 'err');
-  } finally {
-    if (scanBtn) scanBtn.disabled = false;
+  }catch(e){
+    setSt('✕ Ошибка: '+e.message,'#f44336');
+    toast('⚠ Ошибка OCR','err');
+    log('OCR ERROR: '+e);
+  }finally{
+    if(scanBtn)scanBtn.disabled=false;
   }
-
 }
 
 function captureFrame(){
@@ -2022,6 +2049,8 @@ async function scanOCRFrame(){
   
 // ── Log ───────────────────────────────────────────
 
+
+
   const DEBUG = false;
 
 function log(msg){
@@ -2047,58 +2076,33 @@ function log(msg){
   el.innerHTML += msg + '<br>';
 }
 
-
+  
 </script>
+<script src="tesseract.min.js"></script>
 <script>
-
-// -- Голосовой ввод (нативный Android SpeechRecognizer) --
-(function() {
-  var _active = null;
-
-  window.voiceInput = function(fieldId, memKey) {
-    if (!window.Android || typeof Android.startVoice !== 'function') {
-      toast('\u26a0 \u0413\u043e\u043b\u043e\u0441\u043e\u0432\u043e\u0439 \u0432\u0432\u043e\u0434 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d', 'err');
-      return;
-    }
-    if (_active === fieldId) {
-      Android.stopVoice();
-      _btn(fieldId, false);
-      _active = null;
-      return;
-    }
-    if (_active) { Android.stopVoice(); _btn(_active, false); }
-    _active = fieldId;
-    _btn(fieldId, true);
-    Android.startVoice(fieldId, memKey || '');
+(function(){
+  var _a=null;
+  window.voiceInput=function(fId,mKey){
+    if(!window.Android||typeof Android.startVoice!=="function"){toast("⚠ Голос недоступен","err");return;}
+    if(_a===fId){Android.stopVoice();_b(fId,false);_a=null;return;}
+    if(_a){Android.stopVoice();_b(_a,false);}
+    _a=fId;_b(fId,true);Android.startVoice(fId,mKey||"");
   };
-
-  window.onVoiceReady  = function(fieldId, _v) {};
-
-  window.onVoiceResult = function(fieldId, text) {
-    _btn(fieldId, false); _active = null;
-    var inp = document.getElementById(fieldId);
-    if (inp) {
-      inp.value = text;
-      var key = fieldId.replace('f-', '');
-      try { onMemInput(inp, key); } catch(e) {}
-    }
-    toast('\ud83c\udfa4 ' + text, 'ok');
+  window.onVoiceReady=function(){};
+  window.onVoiceResult=function(fId,text){
+    _b(fId,false);_a=null;
+    var el=document.getElementById(fId);
+    if(el){el.value=text;try{onMemInput(el,fId.replace("f-",""));}catch(e){}}
+    toast("✅ "+text,"ok");
   };
-
-  window.onVoiceError = function(fieldId, err) {
-    _btn(fieldId, false); _active = null;
-    var msgs = {
-      'no-speech': '\u0420\u0435\u0447\u044c \u043d\u0435 \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d\u0430',
-      'timeout':   '\u0412\u0440\u0435\u043c\u044f \u0432\u044b\u0448\u043b\u043e',
-      'permission':'\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443',
-      'network':   '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438'
-    };
-    toast('\u26a0 ' + (msgs[err] || err), 'err');
+  window.onVoiceError=function(fId,err){
+    _b(fId,false);_a=null;
+    var m={"no-speech":"Речь не распознана","timeout":"Время вышло","permission":"Нет доступа к микрофону","network":"Ошибка сети"};
+    toast("⚠ "+(m[err]||err),"err");
   };
-
-  function _btn(fieldId, on) {
-    var b = document.getElementById('vbtn-' + fieldId.replace('f-', ''));
-    if (b) { if (on) b.classList.add('vbtn-on'); else b.classList.remove('vbtn-on'); }
+  function _b(fId,on){
+    var b=document.getElementById("vbtn-"+fId.replace("f-",""));
+    if(b){if(on)b.classList.add("vbtn-on");else b.classList.remove("vbtn-on");}
   }
 })();
 </script>
