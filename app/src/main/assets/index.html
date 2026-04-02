@@ -1879,146 +1879,86 @@ let ocrWorkerLoading = false;
 function initOcrWorker() {
   if (ocrWorkerReady) return Promise.resolve(true);
   if (ocrWorkerLoading) return Promise.resolve(false);
-
-  ocrWorkerLoading = true;
-  const ws = document.getElementById('ocr-worker-status');
-  const btn = document.getElementById('ocr-btn');
-
-  if (ws) ws.textContent = 'OCR загружается...';
-
-  return Tesseract.createWorker({workerBlobURL: true})
-    .then(w => {
-      ocrWorker = w;
+  ocrWorkerLoading = true; ocrWorker = null;
+  var ws=document.getElementById('ocr-worker-status');
+  var btn=document.getElementById('ocr-btn');
+  if(ws){ws.textContent='OCR загружается...';ws.style.color='var(--text3)';}
+  if(btn)btn.style.opacity='0.5';
+  return Tesseract.createWorker({workerBlobURL:true})
+    .then(function(w){
+      ocrWorker=w;
       return w.loadLanguage('eng');
-    })
-    .then(() => ocrWorker.initialize('eng'))
-    .then(() => ocrWorker.setParameters({
-      tessedit_char_whitelist: 'INCQREQ0123456789', // только нужные символы
-      tessedit_ocr_engine_mode: 3, // LSTM_ONLY — точнее
-      tessedit_pageseg_mode: 7, // SINGLE_LINE — идеально для одного номера
-      user_defined_dpi: '300',
-      preserve_interword_spaces: '0',
-      tessedit_do_invert: '0'
-    }))
-    .then(() => {
-      ocrWorkerReady = true;
-      ocrWorkerLoading = false;
-      if (ws) {
-        ws.textContent = 'OCR ✓ готов (строгий режим)';
-        ws.style.color = '#4caf50';
-      }
-      toast('✓ OCR готов к распознаванию INC/REQ + 12 цифр', 'ok');
+    }).then(function(){return ocrWorker.initialize('eng');})
+    .then(function(){return ocrWorker.setParameters({
+      tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+      tessedit_pageseg_mode:7
+    });})
+    .then(function(){
+      ocrWorkerReady=true;ocrWorkerLoading=false;
+      if(ws){ws.textContent='OCR ✓ готов';ws.style.color='#4caf50';}
+      if(btn)btn.style.opacity='1';
+      toast('✓ OCR готов','ok');
       return true;
-    })
-    .catch(e => {
-      console.error('OCR init error:', e);
-      ocrWorker = null;
-      ocrWorkerReady = false;
-      ocrWorkerLoading = false;
-      if (ws) ws.textContent = 'OCR ✗ ошибка';
+    }).catch(function(e){
+      ocrWorker=null;ocrWorkerReady=false;ocrWorkerLoading=false;
+      if(ws){ws.textContent='OCR ✗ нажмите для повтора';ws.style.color='#f44336';}
+      if(btn)btn.style.opacity='1';
+      log('OCR INIT ERROR: '+e);
       return false;
     });
 }
 
- async function recognizeRequest(canvas) {
-  const ocrSt = document.getElementById('ocr-status');
-  const setSt = (msg, color = '#fff') => {
-    if (ocrSt) {
-      ocrSt.textContent = msg;
-      ocrSt.style.color = color;
+  async function recognizeRequest(canvas){
+  var ocrSt=document.getElementById('ocr-status');
+  var scanBtn=document.getElementById('ocr-scan-btn');
+  function setSt(msg,color){if(ocrSt){ocrSt.textContent=msg;ocrSt.style.color=color||'rgba(255,255,255,0.8)';}}
+  if(scanBtn)scanBtn.disabled=true;
+  try{
+    if(!canvas){setSt('⚠ Нет кадра','#f90');return;}
+    if(!ocrWorkerReady){
+      if(ocrWorkerLoading){setSt('⏳ OCR загружается...','#fff');return;}
+      setSt('⏳ Запуск OCR...','#fff');
+      var ok=await initOcrWorker();
+      if(!ok){setSt('✕ Ошибка OCR','#f44');return;}
     }
-  };
-
-  const scanBtn = document.getElementById('ocr-scan-btn');
-  if (scanBtn) scanBtn.disabled = true;
-
-  try {
-    if (!ocrWorkerReady) {
-      setSt('⏳ Запуск OCR...', '#fff');
-      const ok = await initOcrWorker();
-      if (!ok) {
-        setSt('✕ Ошибка запуска OCR', '#f44336');
-        return;
-      }
+    setSt('⏳ Распознавание...','#fff');
+    var ctx=canvas.getContext('2d');
+    var img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    var d=img.data;
+    for(var i=0;i<d.length;i+=4){
+      var gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+      var val=gray>140?255:0;
+      d[i]=d[i+1]=d[i+2]=val;
     }
-
-    setSt('⏳ Распознавание...', '#fff');
-
-    // === Улучшенная предобработка ===
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    let imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imgData.data;
-
-    // Адаптивный контраст + бинаризация
-    let sum = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      sum += gray;
+    ctx.putImageData(img,0,0);
+    var result=await ocrWorker.recognize(canvas);
+    var text=result.data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    log('TEXT: '+text);
+    var match=text.match(/(INC|REQ)([0-9]{12})/);
+    if(match){
+      var req=match[1]+match[2];
+      var inp=document.getElementById('ocr-manual-input');
+      if(inp)inp.value=req;
+      setSt('✓ Найдено: '+req,'#4caf50');
+      toast('✓ '+req,'ok');
+      setTimeout(function(){
+        var fReq=document.getElementById('f-req');
+        if(fReq)fReq.value=req;
+        closeOCR();
+      },1200);
+    }else{
+      var preview=text.slice(0,40)||'(текст не распознан)';
+      setSt('✕ Не найдено. Распознано: '+preview,'#f44336');
+      toast('⚠ INC/REQ не найден','err');
     }
-    const avg = sum / (data.length / 4);
-
-    for (let i = 0; i < data.length; i += 4) {
-      let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      gray = (gray - avg * 0.7) * 2.2; // усиливаем контраст
-      const val = gray > 110 ? 255 : 0;
-      data[i] = data[i + 1] = data[i + 2] = val;
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    // Лёгкое размытие для удаления шума
-    ctx.filter = 'blur(0.6px)';
-    ctx.drawImage(canvas, 0, 0);
-    ctx.filter = 'none';
-
-    // === Распознавание ===
-    const { data: result } = await ocrWorker.recognize(canvas);
-
-    let rawText = result.text.trim().toUpperCase();
-
-    // === СТРОГАЯ ПОСТОБРАБОТКА ===
-    // Исправляем частые ошибки OCR
-    rawText = rawText
-      .replace(/O/g, '0')
-      .replace(/[IL]/g, '1')
-      .replace(/S/g, '5')
-      .replace(/B/g, '8')
-      .replace(/Z/g, '2')
-      .replace(/[^INCQREQ0-9]/g, ''); // убираем ВСЁ лишнее
-
-    // Ищем строго INC + 12 цифр или REQ + 12 цифр
-    const match = rawText.match(/(INC|REQ)([0-9]{12})/);
-
-    if (match) {
-      const fullCode = match[1] + match[2]; // всегда ровно 15 символов
-
-      // Дополнительная проверка длины и формата
-      if (fullCode.length === 15 && /^[A-Z]{3}[0-9]{12}$/.test(fullCode)) {
-        document.getElementById('ocr-manual-input').value = fullCode;
-        ocrInputFilter(document.getElementById('ocr-manual-input')); // обновит счётчик и цвет
-
-        setSt('✓ Найдено: ' + fullCode, '#4caf50');
-        toast('✓ ' + fullCode, 'ok');
-
-        setTimeout(() => {
-          document.getElementById('f-req').value = fullCode;
-          closeOCR();
-        }, 900);
-        return;
-      }
-    }
-
-    // Если не нашли — показываем, что увидел OCR (для отладки)
-    const preview = rawText.length > 60 ? rawText.slice(0, 60) + '...' : rawText || '(ничего не распознано)';
-    setSt('✕ Не найдено строго 15 символов (INC/REQ + 12 цифр)<br>Распознано: ' + preview, '#f44336');
-
-  } catch (e) {
-    console.error('OCR error:', e);
-    setSt('✕ Ошибка распознавания: ' + e.message, '#f44336');
-  } finally {
-    if (scanBtn) scanBtn.disabled = false;
+  }catch(e){
+    setSt('✕ Ошибка: '+e.message,'#f44336');
+    toast('⚠ Ошибка OCR','err');
+    log('OCR ERROR: '+e);
+  }finally{
+    if(scanBtn)scanBtn.disabled=false;
   }
 }
-  
 
 function captureFrame(){
 
@@ -2087,20 +2027,19 @@ async function scanOCRFrame(){
     let sh = fRect.height * scaleY;
 
     // 🔥 немного уменьшаем рамку (убираем края)
-    const pad = 18;
+    const pad = 10;
     sx += pad;
     sy += pad;
     sw -= pad * 2;
     sh -= pad * 2;
 
     const canvas = document.createElement('canvas');
-    const scale = 1.8;
-    canvas.width = Math.floor(sw * scale);
-    canvas.height = Math.floor(sh * scale);
+    canvas.width = sw;
+    canvas.height = sh;
 
     const ctx = canvas.getContext('2d');
 
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
     log('CROPPED: ' + Math.round(sw) + 'x' + Math.round(sh));
 
