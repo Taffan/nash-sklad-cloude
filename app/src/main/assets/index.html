@@ -285,10 +285,12 @@ body {
 .cam-wrap {
   position: relative;
   background: #000;
-  height: 70px; width: 100%;
+  height: 0; width: 100%;
   max-width: 100%;
   border-radius: 6px; overflow: hidden;
+  transition: height 0.35s ease;
 }
+.cam-wrap.cam-open { height: 130px; }
 
 .cam-wrap video { width: 100%; height: 100%; object-fit: cover; display: none; }
 .cam-wrap canvas { position: absolute; inset: 0; pointer-events: none; display: none; }
@@ -307,7 +309,7 @@ body {
 }
 
 .sf {
-  width: 60px; height: 35px; position: relative;
+  width: 240px; height: 90px; position: relative;
 }
 
 .sf::before {
@@ -315,11 +317,11 @@ body {
   box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
 }
 
-.sfc { position: absolute; width: 12px; height: 12px; border-color: #fff; border-style: solid; }
-.sfc.tl { top:0; left:0;    border-width: 2px 0 0 2px; }
-.sfc.tr { top:0; right:0;   border-width: 2px 2px 0 0; }
-.sfc.bl { bottom:0; left:0; border-width: 0 0 2px 2px; }
-.sfc.br { bottom:0; right:0;border-width: 0 2px 2px 0; }
+.sfc { position: absolute; width: 24px; height: 24px; border-color: #fff; border-style: solid; }
+.sfc.tl { top:0; left:0;    border-width: 3px 0 0 3px; }
+.sfc.tr { top:0; right:0;   border-width: 3px 3px 0 0; }
+.sfc.bl { bottom:0; left:0; border-width: 0 0 3px 3px; }
+.sfc.br { bottom:0; right:0;border-width: 0 3px 3px 0; }
 
 .sl {
   position: absolute; left:0; right:0; height: 2px;
@@ -1167,6 +1169,7 @@ async function startCam() {
     document.getElementById('cam-ph').style.display = 'none';
     document.getElementById('cv').style.display = 'block';
     document.getElementById('sfwrap').style.display = 'flex';
+    document.querySelector('.cam-wrap').classList.add('cam-open');
     document.getElementById('cam-btn').classList.add('stop');
     document.getElementById('cam-txt').textContent = 'Выключить камеру';
     camActive = true;
@@ -1222,6 +1225,7 @@ function stopCam() {
   document.getElementById('cam-ph').style.display='flex';
   document.getElementById('cv').style.display='none';
   document.getElementById('sfwrap').style.display='none';
+  document.querySelector('.cam-wrap').classList.remove('cam-open');
   document.getElementById('cam-btn').classList.remove('stop');
   document.getElementById('cam-txt').textContent='Включить камеру';
   camActive=false;
@@ -1929,11 +1933,10 @@ function initOcrWorker() {
     ctx.putImageData(img,0,0);
     var result=await ocrWorker.recognize(canvas);
     var text=result.data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
-    text=text.replace(/^.*?(INC|REQ)/,'$1');
     log('TEXT: '+text);
-    var match=text.match(/(INC|REQ)([0-9O]{12})/);
+    var match=text.match(/(INC|REQ)([0-9]{12})/);
     if(match){
-      var req=match[1]+match[2].replace(/O/g,'0').replace(/I/g,'1').replace(/S/g,'5');
+      var req=match[1]+match[2];
       var inp=document.getElementById('ocr-manual-input');
       if(inp)inp.value=req;
       setSt('✓ Найдено: '+req,'#4caf50');
