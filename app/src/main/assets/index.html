@@ -1851,27 +1851,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const fdate = document.getElementById('f-date');
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
   setTimeout(async () => {
-    try{
-      if(!ocrWorker){
-        log('PRELOAD WORKER');
-
-        ocrWorker = await Tesseract.createWorker({
-          workerBlobURL: true
-        });
-
-        await ocrWorker.loadLanguage('eng');
-        await ocrWorker.initialize('eng');
-            await ocrWorker.setParameters({
-              tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-              tessedit_pageseg_mode: 7
-            });
-
-        log('WORKER READY');
-      }
-    }catch(e){
-      log('PRELOAD ERROR: ' + e);
-    }
-  }, 1000);
+    initOcrWorker();
+  }, 1500);
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -1890,91 +1871,93 @@ if ('serviceWorker' in navigator) {
   });
 }
   
-let ocrWorker = null; 
+let ocrWorker = null;
+let ocrWorkerReady = false;
+let ocrWorkerLoading = false; 
+
+
+function initOcrWorker() {
+  if (ocrWorkerReady) return Promise.resolve(true);
+  if (ocrWorkerLoading) return Promise.resolve(false);
+  ocrWorkerLoading = true; ocrWorker = null;
+  var ws=document.getElementById('ocr-worker-status');
+  var btn=document.getElementById('ocr-btn');
+  if(ws){ws.textContent='OCR загружается...';ws.style.color='var(--text3)';}
+  if(btn)btn.style.opacity='0.5';
+  return Tesseract.createWorker({workerBlobURL:true})
+    .then(function(w){
+      ocrWorker=w;
+      return w.loadLanguage('eng');
+    }).then(function(){return ocrWorker.initialize('eng');})
+    .then(function(){return ocrWorker.setParameters({
+      tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+      tessedit_pageseg_mode:7
+    });})
+    .then(function(){
+      ocrWorkerReady=true;ocrWorkerLoading=false;
+      if(ws){ws.textContent='OCR ✓ готов';ws.style.color='#4caf50';}
+      if(btn)btn.style.opacity='1';
+      toast('✓ OCR готов','ok');
+      return true;
+    }).catch(function(e){
+      ocrWorker=null;ocrWorkerReady=false;ocrWorkerLoading=false;
+      if(ws){ws.textContent='OCR ✗ нажмите для повтора';ws.style.color='#f44336';}
+      if(btn)btn.style.opacity='1';
+      log('OCR INIT ERROR: '+e);
+      return false;
+    });
+}
 
   async function recognizeRequest(canvas){
-
-  log('OCR START');
-
+  var ocrSt=document.getElementById('ocr-status');
+  var scanBtn=document.getElementById('ocr-scan-btn');
+  function setSt(msg,color){if(ocrSt){ocrSt.textContent=msg;ocrSt.style.color=color||'rgba(255,255,255,0.8)';}}
+  if(scanBtn)scanBtn.disabled=true;
   try{
-
-    if(!ocrWorker){
-      ocrWorker = await Tesseract.createWorker({
-        workerBlobURL: true
-      });
-
-      await ocrWorker.loadLanguage('eng');
-      await ocrWorker.initialize('eng');
-
-      await ocrWorker.setParameters({
-        tessedit_char_whitelist: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-        tessedit_pageseg_mode: 7
-      });
-
-      log('WORKER INIT DONE');
+    if(!canvas){setSt('⚠ Нет кадра','#f90');return;}
+    if(!ocrWorkerReady){
+      if(ocrWorkerLoading){setSt('⏳ OCR загружается...','#fff');return;}
+      setSt('⏳ Запуск OCR...','#fff');
+      var ok=await initOcrWorker();
+      if(!ok){setSt('✕ Ошибка OCR','#f44');return;}
     }
-
-    // 🔥 защита
-    if(!canvas){
-      log('NO CANVAS');
-      return;
+    setSt('⏳ Распознавание...','#fff');
+    var ctx=canvas.getContext('2d');
+    var img=ctx.getImageData(0,0,canvas.width,canvas.height);
+    var d=img.data;
+    for(var i=0;i<d.length;i+=4){
+      var gray=d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+      var val=gray>140?255:0;
+      d[i]=d[i+1]=d[i+2]=val;
     }
-
-    // 🔥 обработка изображения
-    const ctx = canvas.getContext('2d');
-    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = img.data;
-
-    for (let i = 0; i < d.length; i += 4) {
-      const gray = (d[i] + d[i+1] + d[i+2]) / 3;
-      const val = gray > 140 ? 255 : 0;
-
-      d[i] = val;
-      d[i+1] = val;
-      d[i+2] = val;
-    }
-
-    ctx.putImageData(img, 0, 0);
-
-    // 👉 OCR
-    const { data } = await ocrWorker.recognize(canvas);
-
-    log('OCR DONE');
-
-    let text = data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
-
-    text = text.replace(/^.*?(INC|REQ)/, '$1');
-
-    log('TEXT: ' + text);
-
-    let match = text.match(/(INC|REQ)[0-9O]{12}/);
-
+    ctx.putImageData(img,0,0);
+    var result=await ocrWorker.recognize(canvas);
+    var text=result.data.text.toUpperCase().replace(/[^A-Z0-9]/g,'');
+    log('TEXT: '+text);
+    var match=text.match(/(INC|REQ)([0-9]{12})/);
     if(match){
-
-      let raw = match[0];
-
-      let prefix = raw.slice(0,3);
-      let numbers = raw
-        .slice(3)
-        .replace(/O/g,'0')
-        .replace(/I/g,'1')
-        .replace(/S/g,'5');
-
-      const req = prefix + numbers;
-
-      const input = document.getElementById("ocr-manual-input");
-      if(input) input.value = req;
-
-      log('FIXED: ' + req);
-
+      var req=match[1]+match[2];
+      var inp=document.getElementById('ocr-manual-input');
+      if(inp)inp.value=req;
+      setSt('✓ Найдено: '+req,'#4caf50');
+      toast('✓ '+req,'ok');
+      setTimeout(function(){
+        var fReq=document.getElementById('f-req');
+        if(fReq)fReq.value=req;
+        closeOCR();
+      },1200);
     }else{
-      log('NOT FOUND');
+      var preview=text.slice(0,40)||'(текст не распознан)';
+      setSt('✕ Не найдено. Распознано: '+preview,'#f44336');
+      toast('⚠ INC/REQ не найден','err');
     }
-
   }catch(e){
-    log('OCR ERROR: ' + e);
+    setSt('✕ Ошибка: '+e.message,'#f44336');
+    toast('⚠ Ошибка OCR','err');
+    log('OCR ERROR: '+e);
+  }finally{
+    if(scanBtn)scanBtn.disabled=false;
   }
-
 }
 
 function captureFrame(){
@@ -2099,5 +2082,32 @@ function log(msg){
   
 </script>
 <script src="tesseract.min.js"></script>
+<script>
+(function(){
+  var _a=null;
+  window.voiceInput=function(fId,mKey){
+    if(!window.Android||typeof Android.startVoice!=="function"){toast("⚠ Голос недоступен","err");return;}
+    if(_a===fId){Android.stopVoice();_b(fId,false);_a=null;return;}
+    if(_a){Android.stopVoice();_b(_a,false);}
+    _a=fId;_b(fId,true);Android.startVoice(fId,mKey||"");
+  };
+  window.onVoiceReady=function(){};
+  window.onVoiceResult=function(fId,text){
+    _b(fId,false);_a=null;
+    var el=document.getElementById(fId);
+    if(el){el.value=text;try{onMemInput(el,fId.replace("f-",""));}catch(e){}}
+    toast("✅ "+text,"ok");
+  };
+  window.onVoiceError=function(fId,err){
+    _b(fId,false);_a=null;
+    var m={"no-speech":"Речь не распознана","timeout":"Время вышло","permission":"Нет доступа к микрофону","network":"Ошибка сети"};
+    toast("⚠ "+(m[err]||err),"err");
+  };
+  function _b(fId,on){
+    var b=document.getElementById("vbtn-"+fId.replace("f-",""));
+    if(b){if(on)b.classList.add("vbtn-on");else b.classList.remove("vbtn-on");}
+  }
+})();
+</script>
 </body>
 </html>
