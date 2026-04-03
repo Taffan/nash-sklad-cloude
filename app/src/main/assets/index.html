@@ -721,7 +721,7 @@ body {
           <div class="fr" id="row-req" style="display:none;">
             <div class="fi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
             <div class="fc">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;"><div class="fl" style="margin-bottom:0;">Номер заявки</div><div id="ocr-worker-status" onclick="if(!ocrWorkerReady&&!ocrWorkerLoading)initOcrWorker()" style="font-size:10px;color:var(--text3);cursor:pointer;">OCR загружается...</div></div>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;"><div class="fl" style="margin-bottom:0;">Номер заявки</div><div id="ocr-worker-status" onclick="if(!ocrWorkerReady&&!ocrWorkerLoading)initOcrWorker()" style="font-size:10px;color:var(--text3);cursor:pointer;">ML Kit готов</div></div>
               <div style="display:flex;gap:6px;align-items:center;">
                 <input class="finp" id="f-req" type="text" placeholder="Например: INC/REQ-001" style="flex:1;margin:0;">
                 <button type="button" id="ocr-btn" onclick="startOCR()" title="Распознать с камеры" style="flex-shrink:0;width:36px;height:36px;border-radius:8px;border:none;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;">
@@ -1851,8 +1851,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const fdate = document.getElementById('f-date');
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
   setTimeout(async () => {
-    initOcrWorker();
-  }, 1500);
+    // ML Kit не требует предзагрузки
+    var ws=document.getElementById('ocr-worker-status');
+    if(ws){ws.textContent='ML Kit готов';ws.style.color='#4caf50';}
+  }, 500);
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -1882,7 +1884,7 @@ function initOcrWorker() {
   ocrWorkerLoading = true; ocrWorker = null;
   var ws=document.getElementById('ocr-worker-status');
   var btn=document.getElementById('ocr-btn');
-  if(ws){ws.textContent='OCR загружается...';ws.style.color='var(--text3)';}
+  if(ws){ws.textContent='ML Kit готов';ws.style.color='var(--text3)';}
   if(btn)btn.style.opacity='0.5';
   return Tesseract.createWorker({workerBlobURL:true})
     .then(function(w){
@@ -1916,7 +1918,7 @@ function initOcrWorker() {
   try{
     if(!canvas){setSt('⚠ Нет кадра','#f90');return;}
     if(!ocrWorkerReady){
-      if(ocrWorkerLoading){setSt('⏳ OCR загружается...','#fff');return;}
+      if(ocrWorkerLoading){setSt('⏳ ML Kit готов','#fff');return;}
       setSt('⏳ Запуск OCR...','#fff');
       var ok=await initOcrWorker();
       if(!ok){setSt('✕ Ошибка OCR','#f44');return;}
@@ -1986,75 +1988,56 @@ async function scanRequest(){
 
 }
 
-async function scanOCRFrame(){
+async function scanOCRFrame() {
+  const ocrSt  = document.getElementById('ocr-status');
+  const scanBtn = document.getElementById('ocr-scan-btn');
+  const video   = document.getElementById('ocr-video');
+  const frame   = document.getElementById('ocr-frame');
 
-  log('SCAN CLICK');
+  function setSt(msg, color) {
+    if (ocrSt) { ocrSt.textContent = msg; ocrSt.style.color = color || 'rgba(255,255,255,0.8)'; }
+  }
 
-  await new Promise(r => setTimeout(r, 300));
+  if (!video || !video.videoWidth) { setSt('⚠ Камера не готова', '#f90'); return; }
 
-  const video = document.getElementById('ocr-video');
-  const frame = document.getElementById('ocr-frame');
-
-  if(!video || !video.videoWidth){
-    log('NO VIDEO');
+  if (!window.Android || typeof Android.mlkitOcr !== 'function') {
+    setSt('⚠ ML Kit недоступен', '#f90');
     return;
   }
 
-  if(!frame){
-    log('NO FRAME → FULL FRAME');
+  if (scanBtn) scanBtn.disabled = true;
+  setSt('⏳ Распознавание...', '#fff');
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    canvas.getContext('2d').drawImage(video,0,0);
-
-    await recognizeRequest(canvas);
-    return;
-  }
-
-  try{
-
+  try {
+    // Вырезаем зону рамки
     const vRect = video.getBoundingClientRect();
-    const fRect = frame.getBoundingClientRect();
-
-    const scaleX = video.videoWidth / vRect.width;
-    const scaleY = video.videoHeight / vRect.height;
-
-    let sx = (fRect.left - vRect.left) * scaleX;
-    let sy = (fRect.top - vRect.top) * scaleY;
-    let sw = fRect.width * scaleX;
-    let sh = fRect.height * scaleY;
-
-    // 🔥 немного уменьшаем рамку (убираем края)
-    const pad = 10;
-    sx += pad;
-    sy += pad;
-    sw -= pad * 2;
-    sh -= pad * 2;
-
     const canvas = document.createElement('canvas');
-    canvas.width = sw;
+    let sx = 0, sy = 0, sw = video.videoWidth, sh = video.videoHeight;
+
+    if (frame) {
+      const fRect = frame.getBoundingClientRect();
+      const scaleX = video.videoWidth  / vRect.width;
+      const scaleY = video.videoHeight / vRect.height;
+      sx = Math.max(0, Math.round((fRect.left - vRect.left) * scaleX));
+      sy = Math.max(0, Math.round((fRect.top  - vRect.top)  * scaleY));
+      sw = Math.min(video.videoWidth  - sx, Math.round(fRect.width  * scaleX));
+      sh = Math.min(video.videoHeight - sy, Math.round(fRect.height * scaleY));
+    }
+
+    canvas.width  = sw;
     canvas.height = sh;
+    canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
-    const ctx = canvas.getContext('2d');
+    // Передаём в ML Kit через base64 JPEG
+    const base64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+    Android.mlkitOcr(base64);
 
-    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-
-    log('CROPPED: ' + Math.round(sw) + 'x' + Math.round(sh));
-
-    await recognizeRequest(canvas);
-
-  }catch(e){
-    log('CROP ERROR: ' + e);
+  } catch(e) {
+    setSt('✕ Ошибка: ' + e.message, '#f44336');
+    if (scanBtn) scanBtn.disabled = false;
   }
 }
-  
-// ── Log ───────────────────────────────────────────
 
-
-
-  const DEBUG = false;
 
 function log(msg){
   if(!DEBUG) return;
@@ -2080,6 +2063,40 @@ function log(msg){
 }
 
   
+
+// ── ML Kit OCR колбэк от Java ─────────────────────────────────
+function onMlkitOcrResult(result) {
+  const ocrSt  = document.getElementById('ocr-status');
+  const scanBtn = document.getElementById('ocr-scan-btn');
+  if (scanBtn) scanBtn.disabled = false;
+
+  function setSt(msg, color) {
+    if (ocrSt) { ocrSt.textContent = msg; ocrSt.style.color = color || 'rgba(255,255,255,0.8)'; }
+  }
+
+  if (result.startsWith('FOUND:')) {
+    var req = result.slice(6);
+    var inp = document.getElementById('ocr-manual-input');
+    if (inp) inp.value = req;
+    setSt('✓ Найдено: ' + req, '#4caf50');
+    toast('✓ ' + req, 'ok');
+    setTimeout(function() {
+      var fReq = document.getElementById('f-req');
+      if (fReq) fReq.value = req;
+      closeOCR();
+    }, 1200);
+
+  } else if (result.startsWith('NOTFOUND:')) {
+    var preview = result.slice(9) || '(текст не распознан)';
+    setSt('✕ Не найдено. Распознано: ' + preview, '#f44336');
+    toast('⚠ INC/REQ не найден', 'err');
+
+  } else {
+    setSt('✕ Ошибка OCR', '#f44336');
+    toast('⚠ Ошибка OCR', 'err');
+  }
+}
+
 </script>
 <script src="tesseract.min.js"></script>
 <script>
