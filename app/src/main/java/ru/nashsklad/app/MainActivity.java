@@ -23,9 +23,17 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -34,11 +42,49 @@ public class MainActivity extends AppCompatActivity {
 
     private WebView webView;
     private SpeechRecognizer sr;
+    private TextRecognizer textRecognizer;
     private final Handler uiHandler = new Handler(Looper.getMainLooper());
 
-    // ── JS Bridge ────────────────────────────────────────────
+    // ── JS Bridge ─────────────────────────────────────────────
     class JSBridge {
 
+        // ML Kit OCR — принимает base64 JPEG от JS
+        @JavascriptInterface
+        public void mlkitOcr(final String base64jpeg) {
+            try {
+                byte[] bytes = Base64.decode(base64jpeg, Base64.DEFAULT);
+                android.graphics.Bitmap bmp = android.graphics.BitmapFactory
+                        .decodeByteArray(bytes, 0, bytes.length);
+                if (bmp == null) {
+                    jsEval("onMlkitOcrResult('ERROR:bad_image')");
+                    return;
+                }
+                InputImage image = InputImage.fromBitmap(bmp, 0);
+                textRecognizer.process(image)
+                    .addOnSuccessListener(visionText -> {
+                        String raw = visionText.getText()
+                                .toUpperCase()
+                                .replaceAll("[^A-Z0-9]", "");
+                        Pattern p = Pattern.compile("(INC|REQ)([0-9]{12})");
+                        Matcher m = p.matcher(raw);
+                        if (m.find()) {
+                            String found = m.group(1) + m.group(2);
+                            jsEval("onMlkitOcrResult('FOUND:" + found + "')");
+                        } else {
+                            // вернём что распознали для отладки (первые 60 символов)
+                            String preview = raw.length() > 60 ? raw.substring(0, 60) : raw;
+                            jsEval("onMlkitOcrResult('NOTFOUND:" + preview + "')");
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        jsEval("onMlkitOcrResult('ERROR:" + e.getMessage() + "')");
+                    });
+            } catch (Exception e) {
+                jsEval("onMlkitOcrResult('ERROR:" + e.getMessage() + "')");
+            }
+        }
+
+        // Голосовой ввод
         @JavascriptInterface
         public void startVoice(final String fieldId, final String memKey) {
             uiHandler.post(() -> {
@@ -54,6 +100,32 @@ public class MainActivity extends AppCompatActivity {
         @JavascriptInterface
         public void stopVoice() {
             uiHandler.post(() -> { if (sr != null) sr.stopListening(); });
+        }
+
+        // Excel экспорт
+        @JavascriptInterface
+        public void shareXlsx(String base64, String filename) {
+            try {
+                byte[] data = Base64.decode(base64, Base64.DEFAULT);
+                File dir = new File(getFilesDir(), "exports");
+                if (!dir.exists()) dir.mkdirs();
+                File file = new File(dir, filename);
+                FileOutputStream fos = new FileOutputStream(file);
+                fos.write(data); fos.close();
+                Uri uri = FileProvider.getUriForFile(MainActivity.this,
+                        getPackageName() + ".provider", file);
+                Intent i = new Intent(Intent.ACTION_SEND);
+                i.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                i.putExtra(Intent.EXTRA_STREAM, uri);
+                i.putExtra(Intent.EXTRA_SUBJECT, "Отчёт Наш Склад");
+                i.putExtra(Intent.EXTRA_TEXT, filename);
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                startActivity(Intent.createChooser(i, "Сохранить или отправить файл"));
+            } catch (Exception e) {
+                Log.e(TAG, "shareXlsx", e);
+                uiHandler.post(() -> Toast.makeText(MainActivity.this,
+                        "Ошибка экспорта: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            }
         }
 
         @JavascriptInterface
@@ -79,51 +151,9 @@ public class MainActivity extends AppCompatActivity {
                         "Ошибка: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         }
-
-        @JavascriptInterface
-        public void shareXlsx(String base64, String filename) {
-            try {
-                byte[] data = Base64.decode(base64, Base64.DEFAULT);
-                // Пишем в filesDir (доступен FileProvider без WRITE_EXTERNAL_STORAGE)
-                File dir = new File(getFilesDir(), "exports");
-                if (!dir.exists()) dir.mkdirs();
-                File file = new File(dir, filename);
-                FileOutputStream fos = new FileOutputStream(file);
-                fos.write(data); fos.close();
-
-                Uri uri = FileProvider.getUriForFile(MainActivity.this,
-                        getPackageName() + ".provider", file);
-
-                Intent i = new Intent(Intent.ACTION_SEND);
-                i.setType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-                i.putExtra(Intent.EXTRA_STREAM, uri);
-                i.putExtra(Intent.EXTRA_SUBJECT, "Отчёт Наш Склад");
-                i.putExtra(Intent.EXTRA_TEXT, filename);
-                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                startActivity(Intent.createChooser(i, "Сохранить или отправить файл"));
-            } catch (Exception e) {
-                Log.e(TAG, "shareXlsx", e);
-                uiHandler.post(() -> Toast.makeText(MainActivity.this,
-                        "Ошибка экспорта: " + e.getMessage(), Toast.LENGTH_LONG).show());
-            }
-        }
-
-        @JavascriptInterface
-        public void sendEmail(String subject, String body) {
-            try {
-                Intent i = new Intent(Intent.ACTION_SENDTO);
-                i.setData(Uri.parse("mailto:"));
-                i.putExtra(Intent.EXTRA_SUBJECT, subject);
-                i.putExtra(Intent.EXTRA_TEXT, body);
-                startActivity(Intent.createChooser(i, "Отправить отчёт"));
-            } catch (Exception e) {
-                uiHandler.post(() -> Toast.makeText(MainActivity.this,
-                        "Почтовый клиент не найден", Toast.LENGTH_SHORT).show());
-            }
-        }
     }
 
-    // ── SpeechRecognizer ─────────────────────────────────────
+    // ── SpeechRecognizer ──────────────────────────────────────
     private void launchSpeech(final String fieldId, final String memKey) {
         if (sr != null) { sr.destroy(); sr = null; }
         sr = SpeechRecognizer.createSpeechRecognizer(this);
@@ -135,10 +165,8 @@ public class MainActivity extends AppCompatActivity {
             public void onEndOfSpeech()             {}
             public void onPartialResults(Bundle b)  {}
             public void onEvent(int t, Bundle b)    {}
-
             public void onResults(Bundle results) {
-                ArrayList<String> m =
-                        results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                ArrayList<String> m = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
                 if (m != null && !m.isEmpty()) {
                     String text = m.get(0).replace("'", "\\'");
                     jsEval("onVoiceResult('" + fieldId + "','" + text + "')");
@@ -146,7 +174,6 @@ public class MainActivity extends AppCompatActivity {
                     jsEval("onVoiceError('" + fieldId + "','no-speech')");
                 }
             }
-
             public void onError(int error) {
                 String msg;
                 switch (error) {
@@ -156,20 +183,15 @@ public class MainActivity extends AppCompatActivity {
                     case SpeechRecognizer.ERROR_NETWORK_TIMEOUT: msg = "network";    break;
                     case SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS:
                                                                   msg = "permission"; break;
-                    case SpeechRecognizer.ERROR_AUDIO:            msg = "audio";      break;
                     default:                                       msg = "err-" + error;
                 }
                 jsEval("onVoiceError('" + fieldId + "','" + msg + "')");
             }
         });
-
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ru-RU");
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "ru-RU");
-        intent.putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false);
-        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true); // офлайн!
+        intent.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
         intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
         intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
         sr.startListening(intent);
@@ -179,12 +201,15 @@ public class MainActivity extends AppCompatActivity {
         uiHandler.post(() -> { if (webView != null) webView.evaluateJavascript(js, null); });
     }
 
-    // ── onCreate ─────────────────────────────────────────────
+    // ── onCreate ──────────────────────────────────────────────
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Запрашиваем камеру + микрофон при первом запуске
+        // ML Kit инициализация (офлайн, не требует скачивания)
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+
+        // Запрос разрешений
         java.util.List<String> need = new java.util.ArrayList<>();
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
             need.add(Manifest.permission.CAMERA);
@@ -211,12 +236,9 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 if (url.startsWith("mailto:")) {
-                    try {
-                        startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse(url)));
-                    } catch (Exception e) {
-                        Toast.makeText(MainActivity.this,
-                                "Нет почтового приложения", Toast.LENGTH_SHORT).show();
-                    }
+                    try { startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse(url))); }
+                    catch (Exception e) { Toast.makeText(MainActivity.this,
+                            "Нет почтового приложения", Toast.LENGTH_SHORT).show(); }
                     return true;
                 }
                 return false;
@@ -237,6 +259,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         if (sr != null) { sr.destroy(); sr = null; }
+        if (textRecognizer != null) { textRecognizer.close(); }
         super.onDestroy();
     }
 
