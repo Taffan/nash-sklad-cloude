@@ -882,6 +882,34 @@ body {
         </div>
       </div>
 
+
+      <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;margin-bottom:4px;">Распознавание номера заявки</div>
+      <div style="background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);">
+        <div style="padding:14px 16px;">
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:10px;">Метод OCR</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="radio" name="ocr_method" value="mlkit" id="ocr-method-mlkit"
+                onchange="setOcrMethod('mlkit')"
+                style="width:18px;height:18px;accent-color:var(--accent);">
+              <div>
+                <div style="font-size:14px;color:var(--text);font-weight:500;">Google ML Kit</div>
+                <div style="font-size:11px;color:var(--text3);">Лучшее качество, любые шрифты, офлайн</div>
+              </div>
+            </label>
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+              <input type="radio" name="ocr_method" value="tesseract" id="ocr-method-tesseract"
+                onchange="setOcrMethod('tesseract')"
+                style="width:18px;height:18px;accent-color:var(--accent);">
+              <div>
+                <div style="font-size:14px;color:var(--text);font-weight:500;">Tesseract</div>
+                <div style="font-size:11px;color:var(--text3);">Запасной вариант, без Android bridge</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
       <div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-top:8px;margin-bottom:4px;">О приложении</div>
       <div style="background:var(--surface);border-radius:var(--r);border:1.5px solid var(--border);padding:20px 16px;display:flex;flex-direction:column;align-items:center;gap:14px;">
 
@@ -1706,39 +1734,7 @@ function ocrInputFilter(input) {
   input.style.borderColor = valid ? '#4caf50' : 'var(--accent)';
 }
 
-function startMLKitOCR() {
-  if (window.Android && typeof Android.startTextOCR === 'function') {
-    document.getElementById('ocr-status').textContent = '⏳ Наведите камеру на номер заявки...';
-    document.getElementById('ocr-scan-btn').disabled = true;
-    Android.startTextOCR();
-  } else {
-    document.getElementById('ocr-status').textContent = 'ML Kit недоступен — введите вручную';
-  }
-}
 
-// Вызывается из Java когда ML Kit нашёл текст
-function onOcrResult(result) {
-  const btn = document.getElementById('ocr-scan-btn');
-  if (btn) btn.disabled = false;
-  if (result.startsWith('FOUND:')) {
-    const num = result.slice(6);
-    document.getElementById('ocr-manual-input').value = num;
-    ocrInputFilter(document.getElementById('ocr-manual-input'));
-    document.getElementById('ocr-status').textContent = '✓ Найдено: ' + num;
-    document.getElementById('ocr-status').style.color = '#4caf50';
-    toast('✓ ' + num, 'ok');
-    if (window.Android) Android.stopTextOCR();
-    setTimeout(() => {
-      document.getElementById('f-req').value = num;
-      closeOCR();
-    }, 700);
-  } else if (result === 'SCANNING') {
-    // продолжаем сканирование
-  } else if (result.startsWith('ERROR:')) {
-    document.getElementById('ocr-status').textContent = '✕ ' + result.slice(6);
-    document.getElementById('ocr-status').style.color = 'var(--danger)';
-  }
-}
 
 function captureOCR() { startMLKitOCR(); }
 
@@ -1847,6 +1843,7 @@ document.addEventListener('DOMContentLoaded', function() {
   applyTheme();
   applyVibrationSwitch();
   applySoundSwitch();
+  initOcrMethodUI();
   updateCount();
   const fdate = document.getElementById('f-date');
   if (fdate) fdate.value = new Date().toISOString().slice(0,10);
@@ -1875,7 +1872,8 @@ if ('serviceWorker' in navigator) {
   
 let ocrWorker = null;
 let ocrWorkerReady = false;
-let ocrWorkerLoading = false; 
+let ocrWorkerLoading = false;
+let ocrMethod = localStorage.getItem('ocr_method') || 'mlkit'; // 'mlkit' | 'tesseract' 
 
 
 function initOcrWorker() {
@@ -1916,12 +1914,12 @@ function initOcrWorker() {
   function setSt(msg,color){if(ocrSt){ocrSt.textContent=msg;ocrSt.style.color=color||'rgba(255,255,255,0.8)';}}
   if(scanBtn)scanBtn.disabled=true;
   try{
-    if(!canvas){setSt('⚠ Нет кадра','#f90');return;}
+    if(!canvas){setSt('⚠ Нет кадра','#f90');if(scanBtn)scanBtn.disabled=false;return;}
     if(!ocrWorkerReady){
-      if(ocrWorkerLoading){setSt('⏳ ML Kit готов','#fff');return;}
+      if(ocrWorkerLoading){setSt('⏳ Загрузка...','#fff');if(scanBtn)scanBtn.disabled=false;return;}
       setSt('⏳ Запуск OCR...','#fff');
       var ok=await initOcrWorker();
-      if(!ok){setSt('✕ Ошибка OCR','#f44');return;}
+      if(!ok){setSt('✕ Ошибка OCR','#f44');if(scanBtn)scanBtn.disabled=false;return;}
     }
     setSt('⏳ Распознавание...','#fff');
     var ctx=canvas.getContext('2d');
@@ -1989,20 +1987,17 @@ async function scanRequest(){
 }
 
 async function scanOCRFrame() {
-  const ocrSt  = document.getElementById('ocr-status');
-  const scanBtn = document.getElementById('ocr-scan-btn');
-  const video   = document.getElementById('ocr-video');
-  const frame   = document.getElementById('ocr-frame');
+  var ocrSt  = document.getElementById('ocr-status');
+  var scanBtn = document.getElementById('ocr-scan-btn');
+  var video   = document.getElementById('ocr-video');
+  var frame   = document.getElementById('ocr-frame');
 
   function setSt(msg, color) {
     if (ocrSt) { ocrSt.textContent = msg; ocrSt.style.color = color || 'rgba(255,255,255,0.8)'; }
   }
 
-  if (!video || !video.videoWidth) { setSt('⚠ Камера не готова', '#f90'); return; }
-
-  if (!window.Android || typeof Android.mlkitOcr !== 'function') {
-    setSt('⚠ ML Kit недоступен', '#f90');
-    return;
+  if (!video || !video.videoWidth) {
+    setSt('⚠ Камера не готова', '#f90'); return;
   }
 
   if (scanBtn) scanBtn.disabled = true;
@@ -2010,27 +2005,36 @@ async function scanOCRFrame() {
 
   try {
     // Вырезаем зону рамки
-    const vRect = video.getBoundingClientRect();
-    const canvas = document.createElement('canvas');
-    let sx = 0, sy = 0, sw = video.videoWidth, sh = video.videoHeight;
-
+    var vRect = video.getBoundingClientRect();
+    var canvas = document.createElement('canvas');
+    var sx = 0, sy = 0, sw = video.videoWidth, sh = video.videoHeight;
     if (frame) {
-      const fRect = frame.getBoundingClientRect();
-      const scaleX = video.videoWidth  / vRect.width;
-      const scaleY = video.videoHeight / vRect.height;
+      var fRect = frame.getBoundingClientRect();
+      var scaleX = video.videoWidth  / vRect.width;
+      var scaleY = video.videoHeight / vRect.height;
       sx = Math.max(0, Math.round((fRect.left - vRect.left) * scaleX));
       sy = Math.max(0, Math.round((fRect.top  - vRect.top)  * scaleY));
       sw = Math.min(video.videoWidth  - sx, Math.round(fRect.width  * scaleX));
       sh = Math.min(video.videoHeight - sy, Math.round(fRect.height * scaleY));
     }
-
-    canvas.width  = sw;
-    canvas.height = sh;
+    canvas.width = sw; canvas.height = sh;
     canvas.getContext('2d').drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
 
-    // Передаём в ML Kit через base64 JPEG
-    const base64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-    Android.mlkitOcr(base64);
+    if (ocrMethod === 'mlkit') {
+      // ML Kit через Android bridge
+      if (!window.Android || typeof Android.mlkitOcr !== 'function') {
+        setSt('⚠ ML Kit недоступен', '#f90');
+        if (scanBtn) scanBtn.disabled = false;
+        return;
+      }
+      var base64 = canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+      Android.mlkitOcr(base64);
+      // кнопка разблокируется в onMlkitOcrResult
+    } else {
+      // Tesseract
+      await recognizeRequest(canvas);
+      // recognizeRequest сам разблокирует кнопку
+    }
 
   } catch(e) {
     setSt('✕ Ошибка: ' + e.message, '#f44336');
@@ -2095,6 +2099,33 @@ function onMlkitOcrResult(result) {
     setSt('✕ Ошибка OCR', '#f44336');
     toast('⚠ Ошибка OCR', 'err');
   }
+}
+
+
+function setOcrMethod(method) {
+  ocrMethod = method;
+  localStorage.setItem('ocr_method', method);
+  // Сбросить воркер если переключились на tesseract
+  if (method === 'tesseract' && !ocrWorkerReady && !ocrWorkerLoading) {
+    initOcrWorker();
+  }
+  var ws = document.getElementById('ocr-worker-status');
+  if (ws) {
+    if (method === 'mlkit') {
+      ws.textContent = 'ML Kit готов';
+      ws.style.color = '#4caf50';
+    } else {
+      ws.textContent = ocrWorkerReady ? 'Tesseract готов' : 'Tesseract загружается...';
+      ws.style.color = ocrWorkerReady ? '#4caf50' : 'var(--text3)';
+    }
+  }
+}
+
+function initOcrMethodUI() {
+  var method = localStorage.getItem('ocr_method') || 'mlkit';
+  ocrMethod = method;
+  var el = document.getElementById('ocr-method-' + method);
+  if (el) el.checked = true;
 }
 
 </script>
