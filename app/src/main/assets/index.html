@@ -2081,30 +2081,31 @@ function onMlkitOcrResult(result) {
     if (ocrSt) { ocrSt.textContent = msg; ocrSt.style.color = color || 'rgba(255,255,255,0.8)'; }
   }
 
-  // Функция для фильтрации и нормализации номера заявки
+  // Новая версия normalizeReq: ищем INC или REQ + 12 цифр
   function normalizeReq(req) {
     if (!req) return '';
-    // фильтруем только A-Z и 0-9
-    let filtered = req.toUpperCase().replace(/[^A-Z0-9]/g, '');
-    // исправляем часто путаемые символы
-    filtered = filtered
-      .replace(/O/g, '0')
-      .replace(/[IL]/g, '1')
-      .replace(/S/g, '5');
-    // добавляем INC в начало, если отсутствует
-    if (!filtered.startsWith('INC')) filtered = 'INC' + filtered.slice(3);
-    return filtered;
+    req = req.toUpperCase().replace(/[^A-Z0-9]/g, ''); // только буквы и цифры
+    const match = req.match(/(INC|REQ)(\d{12})/); // ищем строго INC или REQ + 12 цифр
+    if (!match) return '';
+    return match[0]; // возвращаем найденный номер
   }
 
   if (result.startsWith('FOUND:')) {
     var req = normalizeReq(result.slice(6));
     var inp = document.getElementById('ocr-manual-input');
-    if (inp) inp.value = req;
-    setSt('✓ Найдено: ' + req, '#4caf50');
-    toast('✓ ' + req, 'ok');
+    if (req.startsWith('INC') && inp) inp.value = req;
+    var fReq = document.getElementById('f-req');
+    if (req.startsWith('REQ') && fReq) fReq.value = req;
+
+    if (req) {
+      setSt('✓ Найдено: ' + req, '#4caf50');
+      toast('✓ ' + req, 'ok');
+    } else {
+      setSt('✕ Не найдено', '#f44336');
+      toast('⚠ INC/REQ не найден', 'err');
+    }
+
     setTimeout(function() {
-      var fReq = document.getElementById('f-req');
-      if (fReq) fReq.value = req;
       closeOCR();
     }, 1200);
 
