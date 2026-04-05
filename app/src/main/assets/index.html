@@ -2081,8 +2081,23 @@ function onMlkitOcrResult(result) {
     if (ocrSt) { ocrSt.textContent = msg; ocrSt.style.color = color || 'rgba(255,255,255,0.8)'; }
   }
 
+  // Функция для фильтрации и нормализации номера заявки
+  function normalizeReq(req) {
+    if (!req) return '';
+    // фильтруем только A-Z и 0-9
+    let filtered = req.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // исправляем часто путаемые символы
+    filtered = filtered
+      .replace(/O/g, '0')
+      .replace(/[IL]/g, '1')
+      .replace(/S/g, '5');
+    // добавляем INC в начало, если отсутствует
+    if (!filtered.startsWith('INC')) filtered = 'INC' + filtered.slice(3);
+    return filtered;
+  }
+
   if (result.startsWith('FOUND:')) {
-    var req = result.slice(6);
+    var req = normalizeReq(result.slice(6));
     var inp = document.getElementById('ocr-manual-input');
     if (inp) inp.value = req;
     setSt('✓ Найдено: ' + req, '#4caf50');
@@ -2094,7 +2109,7 @@ function onMlkitOcrResult(result) {
     }, 1200);
 
   } else if (result.startsWith('NOTFOUND:')) {
-    var preview = result.slice(9) || '(текст не распознан)';
+    var preview = normalizeReq(result.slice(9)) || '(текст не распознан)';
     setSt('✕ Не найдено. Распознано: ' + preview, '#f44336');
     toast('⚠ INC/REQ не найден', 'err');
 
