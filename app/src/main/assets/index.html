@@ -1696,7 +1696,7 @@ async function startOCR(){
   facingMode: { ideal: "environment" },
   width: { ideal: 1920 },
   height: { ideal: 1080 },
-  focusMode: "continuous"
+  //focusMode: "continuous"
 }
     });
 
@@ -1707,7 +1707,7 @@ async function startOCR(){
     if(capabilities.focusMode){
       track.applyConstraints({
         advanced: [{ focusMode: "continuous" }]
-      });
+      }).catch(()=>{});
     }
     wrap.style.display = 'block';
 
