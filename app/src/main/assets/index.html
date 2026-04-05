@@ -1677,47 +1677,53 @@ function sendByEmail() {
   }
 }
 
-async function startOCR(){
+async function startOCR() {
 
-  log('OPEN OCR');
-
+  // 1. Получаем модалку
   const modal = document.getElementById('ocr-modal');
+  if (!modal) return; // модалка не найдена → выходим
+
   modal.style.display = 'flex';
 
-  document.getElementById('ocr-manual-input').value = '';
-  document.getElementById('ocr-status').textContent = 'Запуск камеры...';
-
+  // 2. Получаем все элементы
+  const input = document.getElementById('ocr-manual-input');
+  const status = document.getElementById('ocr-status');
   const video = document.getElementById('ocr-video');
   const wrap = document.getElementById('ocr-cam-wrap');
 
-  try{
+  // 3. Подготовка модалки
+  if (input) input.value = '';
+  if (status) status.textContent = 'Запуск камеры...';
+
+  try {
+    // 4. Запускаем камеру
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
-  facingMode: { ideal: "environment" },
-  width: { ideal: 1920 },
-  height: { ideal: 1080 },
-  focusMode: "continuous"
-}
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+        // focusMode убран из getUserMedia — WebView безопасно запускает камеру
+      }
     });
 
-    video.srcObject = stream;
+    if (video) video.srcObject = stream;
+
+    // 5. Фокус через applyConstraints (только если поддерживается)
     const track = stream.getVideoTracks()[0];
     const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-
-    if(capabilities.focusMode){
-      track.applyConstraints({
-        advanced: [{ focusMode: "continuous" }]
-      });
+    if (capabilities.focusMode) {
+      track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }).catch(() => {});
     }
-    wrap.style.display = 'block';
+
+    // 6. Отображаем контейнер камеры
+    if (wrap) wrap.style.display = 'block';
 
     window.ocrStream = stream;
 
-    document.getElementById('ocr-status').textContent = 'Наведите на номер заявки';
+    if (status) status.textContent = 'Наведите на номер заявки';
 
-  }catch(e){
-    log('CAMERA ERROR');
-    document.getElementById('ocr-status').textContent = 'Ошибка камеры';
+  } catch (e) {
+    if (status) status.textContent = 'Ошибка камеры';
   }
 }
 
