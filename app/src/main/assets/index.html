@@ -2124,6 +2124,10 @@ if (req) {
   var inp = document.getElementById('ocr-manual-input');
   var fReq = document.getElementById('f-req');
 
+  if (fReq && inp) {
+    fReq.value = inp.value;
+  }
+
   if (req.startsWith('INC') && inp) inp.value = req;
   if (req.startsWith('REQ') && fReq) fReq.value = req;
 
@@ -2131,7 +2135,7 @@ if (req) {
   toast('✓ ' + req, 'ok');
 
   setTimeout(function() {
-    closeOCR();
+    applyOcrManual();
   }, 1200);
 
 } else {
