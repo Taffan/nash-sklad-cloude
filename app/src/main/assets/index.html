@@ -2114,20 +2114,31 @@ function onMlkitOcrResult(result) {
   return prefix + tail.slice(0, 12);
 }
 
-  if (result.startsWith('FOUND:')) {
-    var req = normalizeReq(result.slice(6));
-    var inp = document.getElementById('ocr-manual-input');
-    if (req.startsWith('INC') && inp) inp.value = req;
-    var fReq = document.getElementById('f-req');
-    if (req.startsWith('REQ') && fReq) fReq.value = req;
+  var raw = result
+  .replace(/^FOUND:/, '')
+  .replace(/^NOTFOUND:/, '');
 
-    if (req) {
-      setSt('✓ Найдено: ' + req, '#4caf50');
-      toast('✓ ' + req, 'ok');
-    } else {
-      setSt('✕ Не найдено', '#f44336');
-      toast('⚠ INC/REQ не найден', 'err');
-    }
+var req = normalizeReq(raw);
+
+if (req) {
+  var inp = document.getElementById('ocr-manual-input');
+  var fReq = document.getElementById('f-req');
+
+  if (req.startsWith('INC') && inp) inp.value = req;
+  if (req.startsWith('REQ') && fReq) fReq.value = req;
+
+  setSt('✓ Найдено: ' + req, '#4caf50');
+  toast('✓ ' + req, 'ok');
+
+  setTimeout(function() {
+    closeOCR();
+  }, 1200);
+
+} else {
+  var preview = raw || '(текст не распознан)';
+  setSt('✕ Не найдено. Распознано: ' + preview, '#f44336');
+  toast('⚠ INC/REQ не найден', 'err');
+}
 
     setTimeout(function() {
       closeOCR();
