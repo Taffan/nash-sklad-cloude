@@ -155,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
 
     // ── SpeechRecognizer ──────────────────────────────────────
     private void launchSpeech(final String fieldId, final String memKey) {
-        if (sr != null) { sr.destroy(); sr = null; }
+        if (sr != null) { sr.cancel(); sr.destroy(); sr = null; }
         sr = SpeechRecognizer.createSpeechRecognizer(this);
         sr.setRecognitionListener(new RecognitionListener() {
             public void onReadyForSpeech(Bundle b)  { jsEval("onVoiceReady('" + fieldId + "','')"); }
